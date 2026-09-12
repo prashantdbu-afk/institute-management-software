@@ -1,10 +1,15 @@
 -- Phase 1 security baseline. Apply after 001-011.
 -- profiles is the authoritative source for roles and branch assignments.
 
+begin;
+
 do $$
 begin
   if not exists (
-    select 1 from pg_constraint where conname = 'profiles_branch_id_fkey'
+    select 1
+    from pg_constraint
+    where conname = 'profiles_branch_id_fkey'
+      and conrelid = 'public.profiles'::regclass
   ) then
     alter table public.profiles
       add constraint profiles_branch_id_fkey
@@ -17,6 +22,18 @@ alter table public.profiles
 alter table public.profiles
   add constraint profiles_role_check
   check (role in ('admin', 'branch_manager', 'teacher', 'student')) not valid;
+
+alter table public.profiles enable row level security;
+alter table public.branches enable row level security;
+alter table public.courses enable row level security;
+alter table public.batches enable row level security;
+alter table public.admissions enable row level security;
+alter table public.timetable enable row level security;
+alter table public.stock enable row level security;
+alter table public.homework enable row level security;
+alter table public.homework_submissions enable row level security;
+alter table public.test_results enable row level security;
+alter table public.fees enable row level security;
 
 create or replace function public.current_user_role()
 returns text
@@ -135,9 +152,40 @@ drop policy if exists fees_insert_auth on public.fees;
 drop policy if exists fees_update_auth on public.fees;
 drop policy if exists fees_delete_auth on public.fees;
 
+-- Phase 1 policy names are also dropped so this migration is safely repeatable.
+drop policy if exists profiles_select_authorized on public.profiles;
+drop policy if exists profiles_update_own_safe_fields on public.profiles;
+drop policy if exists branches_select_scoped on public.branches;
+drop policy if exists branches_admin_insert on public.branches;
+drop policy if exists branches_admin_update on public.branches;
+drop policy if exists branches_admin_delete on public.branches;
+drop policy if exists courses_select_scoped on public.courses;
+drop policy if exists courses_manage_scoped on public.courses;
+drop policy if exists batches_select_scoped on public.batches;
+drop policy if exists batches_manage_scoped on public.batches;
+drop policy if exists admissions_management_select on public.admissions;
+drop policy if exists admissions_management_write on public.admissions;
+drop policy if exists timetable_select_scoped on public.timetable;
+drop policy if exists timetable_management_write on public.timetable;
+drop policy if exists stock_management_select on public.stock;
+drop policy if exists stock_management_write on public.stock;
+drop policy if exists homework_select_scoped on public.homework;
+drop policy if exists homework_management_write on public.homework;
+drop policy if exists submissions_select_scoped on public.homework_submissions;
+drop policy if exists submissions_student_insert on public.homework_submissions;
+drop policy if exists submissions_staff_update on public.homework_submissions;
+drop policy if exists submissions_admin_delete on public.homework_submissions;
+drop policy if exists test_results_select_scoped on public.test_results;
+drop policy if exists test_results_staff_write on public.test_results;
+drop policy if exists fees_select_scoped on public.fees;
+drop policy if exists fees_management_write on public.fees;
+
 revoke all on public.profiles, public.branches, public.courses, public.batches,
   public.admissions, public.timetable, public.stock, public.homework,
   public.homework_submissions, public.test_results, public.fees from anon;
+revoke all on public.profiles, public.branches, public.courses, public.batches,
+  public.admissions, public.timetable, public.stock, public.homework,
+  public.homework_submissions, public.test_results, public.fees from public;
 revoke update on public.profiles from authenticated;
 grant select on public.profiles to authenticated;
 grant update (full_name, phone) on public.profiles to authenticated;
@@ -171,13 +219,21 @@ create policy branches_admin_update on public.branches for update to authenticat
 create policy branches_admin_delete on public.branches for delete to authenticated using (public.is_admin());
 
 create policy courses_select_scoped on public.courses for select to authenticated
-using (public.is_admin() or branch_id = public.current_user_branch_id());
+using (
+  public.is_admin()
+  or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
+  or (public.current_user_role() = 'teacher' and instructor_id = auth.uid() and branch_id = public.current_user_branch_id())
+);
 create policy courses_manage_scoped on public.courses for all to authenticated
 using (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()))
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()));
 
 create policy batches_select_scoped on public.batches for select to authenticated
-using (public.is_admin() or branch_id = public.current_user_branch_id());
+using (
+  public.is_admin()
+  or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
+  or (public.current_user_role() = 'teacher' and teacher_id = auth.uid() and branch_id = public.current_user_branch_id())
+);
 create policy batches_manage_scoped on public.batches for all to authenticated
 using (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()))
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()));
@@ -191,7 +247,11 @@ using (public.is_admin() or (public.current_user_role() = 'branch_manager' and b
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()));
 
 create policy timetable_select_scoped on public.timetable for select to authenticated
-using (public.is_admin() or branch_id = public.current_user_branch_id());
+using (
+  public.is_admin()
+  or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
+  or (public.current_user_role() = 'teacher' and teacher_id = auth.uid() and branch_id = public.current_user_branch_id())
+);
 create policy timetable_management_write on public.timetable for all to authenticated
 using (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()) or teacher_id = auth.uid())
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()) or (teacher_id = auth.uid() and branch_id = public.current_user_branch_id()));
@@ -203,7 +263,11 @@ using (public.is_admin() or (public.current_user_role() = 'branch_manager' and b
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()));
 
 create policy homework_select_scoped on public.homework for select to authenticated
-using (public.is_admin() or branch_id = public.current_user_branch_id());
+using (
+  public.is_admin()
+  or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
+  or (public.current_user_role() = 'teacher' and teacher_id = auth.uid() and branch_id = public.current_user_branch_id())
+);
 create policy homework_management_write on public.homework for all to authenticated
 using (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()) or teacher_id = auth.uid())
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()) or (teacher_id = auth.uid() and branch_id = public.current_user_branch_id()));
@@ -223,6 +287,8 @@ using (
 );
 create policy submissions_student_insert on public.homework_submissions for insert to authenticated
 with check (student_id = auth.uid() and public.current_user_role() = 'student');
+revoke update on public.homework_submissions from authenticated;
+grant update (submitted_date, status, marks) on public.homework_submissions to authenticated;
 create policy submissions_staff_update on public.homework_submissions for update to authenticated
 using (
   public.is_admin()
@@ -232,7 +298,14 @@ using (
       and (h.teacher_id = auth.uid() or (public.current_user_role() = 'branch_manager' and h.branch_id = public.current_user_branch_id()))
   )
 )
-with check (student_id is not null);
+with check (
+  public.is_admin()
+  or exists (
+    select 1 from public.homework h
+    where h.id = homework_id
+      and (h.teacher_id = auth.uid() or (public.current_user_role() = 'branch_manager' and h.branch_id = public.current_user_branch_id()))
+  )
+);
 create policy submissions_admin_delete on public.homework_submissions for delete to authenticated using (public.is_admin());
 
 create policy test_results_select_scoped on public.test_results for select to authenticated
@@ -240,18 +313,36 @@ using (
   public.is_admin()
   or student_id = auth.uid()
   or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
-  or exists (select 1 from public.courses c where c.id = course_id and c.instructor_id = auth.uid())
+  or exists (
+    select 1 from public.courses c
+    where c.id = course_id
+      and c.instructor_id = auth.uid()
+      and c.branch_id = public.current_user_branch_id()
+      and branch_id = c.branch_id
+  )
 );
 create policy test_results_staff_write on public.test_results for all to authenticated
 using (
   public.is_admin()
   or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
-  or exists (select 1 from public.courses c where c.id = course_id and c.instructor_id = auth.uid())
+  or exists (
+    select 1 from public.courses c
+    where c.id = course_id
+      and c.instructor_id = auth.uid()
+      and c.branch_id = public.current_user_branch_id()
+      and branch_id = c.branch_id
+  )
 )
 with check (
   public.is_admin()
   or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id())
-  or exists (select 1 from public.courses c where c.id = course_id and c.instructor_id = auth.uid())
+  or exists (
+    select 1 from public.courses c
+    where c.id = course_id
+      and c.instructor_id = auth.uid()
+      and c.branch_id = public.current_user_branch_id()
+      and branch_id = c.branch_id
+  )
 );
 
 create policy fees_select_scoped on public.fees for select to authenticated
@@ -263,3 +354,5 @@ using (
 create policy fees_management_write on public.fees for all to authenticated
 using (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()))
 with check (public.is_admin() or (public.current_user_role() = 'branch_manager' and branch_id = public.current_user_branch_id()));
+
+commit;

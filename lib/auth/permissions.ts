@@ -27,7 +27,7 @@ export function canAccessDashboardPath(role: UserRole, pathname: string) {
   return allowed.includes("*") || allowed.includes(segment)
 }
 
-export type DashboardDecision = "allow" | "unauthenticated" | "forbidden"
+export type DashboardDecision = "allow" | "unauthenticated" | "invalid-profile" | "forbidden"
 
 export function authorizeDashboardRequest(
   isAuthenticated: boolean,
@@ -35,6 +35,7 @@ export function authorizeDashboardRequest(
   pathname: string,
 ): DashboardDecision {
   if (!isAuthenticated) return "unauthenticated"
-  if (!role || !canAccessDashboardPath(role, pathname)) return "forbidden"
+  if (!role) return "invalid-profile"
+  if (!canAccessDashboardPath(role, pathname)) return "forbidden"
   return "allow"
 }

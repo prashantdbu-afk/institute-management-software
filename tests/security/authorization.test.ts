@@ -6,6 +6,20 @@ describe("dashboard authorization", () => {
     expect(authorizeDashboardRequest(false, null, "/dashboard")).toBe("unauthenticated")
   })
 
+  it("denies a protected route when the authenticated user has no profile", () => {
+    expect(authorizeDashboardRequest(true, null, "/dashboard")).toBe("invalid-profile")
+  })
+
+  it("rejects an invalid profile role before authorization", async () => {
+    const { isUserRole } = await import("../../lib/auth/permissions")
+    const untrustedRole = "super_admin"
+
+    expect(isUserRole(untrustedRole)).toBe(false)
+    expect(authorizeDashboardRequest(true, isUserRole(untrustedRole) ? untrustedRole : null, "/dashboard")).toBe(
+      "invalid-profile",
+    )
+  })
+
   it("denies a student access to admin-only routes", () => {
     expect(authorizeDashboardRequest(true, "student", "/dashboard/users")).toBe("forbidden")
     expect(authorizeDashboardRequest(true, "student", "/dashboard/branches")).toBe("forbidden")

@@ -40,11 +40,12 @@ export async function updateSession(request: NextRequest) {
       role = isUserRole(profile?.role) ? profile.role : null
     }
 
-    const decision = authorizeDashboardRequest(Boolean(user && role), role, request.nextUrl.pathname)
+    const decision = authorizeDashboardRequest(Boolean(user), role, request.nextUrl.pathname)
     if (decision !== "allow") {
       const url = request.nextUrl.clone()
-      url.pathname = decision === "unauthenticated" ? "/" : "/dashboard"
+      url.pathname = decision === "forbidden" ? "/dashboard" : "/"
       if (decision === "forbidden") url.searchParams.set("denied", "1")
+      if (decision === "invalid-profile") url.searchParams.set("error", "account_configuration")
       return NextResponse.redirect(url)
     }
   }
