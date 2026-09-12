@@ -25,7 +25,7 @@ interface TeacherFormProps {
 }
 
 export function TeacherForm({ initialData, onSubmit }: TeacherFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Teacher, "id">>({
     name: "",
     email: "",
     phone: "",

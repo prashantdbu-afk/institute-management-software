@@ -25,7 +25,7 @@ interface CourseFormProps {
 }
 
 export function CourseForm({ initialData, onSubmit }: CourseFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Course, "id" | "createdAt">>({
     name: "",
     description: "",
     level: "Beginner" as const,

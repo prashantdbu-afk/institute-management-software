@@ -7,15 +7,12 @@ import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { createClient } from "@/lib/supabase/client"
 
 export default function SignupPage() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [role, setRole] = useState("student")
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")
   const [error, setError] = useState("")
@@ -41,61 +38,33 @@ export default function SignupPage() {
       return
     }
 
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters")
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters")
       return
     }
 
     setLoading(true)
 
     try {
-      const supabase = createClient()
-
-      const { data, error: signupError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            role,
-            first_name: firstName,
-            last_name: lastName,
-          },
-          emailRedirectTo: process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL || `${window.location.origin}/dashboard`,
-        },
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, firstName, lastName }),
       })
+      const result = await response.json()
 
-      if (signupError) {
-        console.log("[v0] Signup error:", signupError.message)
-        setError(signupError.message || "Failed to create account")
+      if (!response.ok) {
+        setError(result.error || "Failed to create account")
         return
       }
 
-      if (data.user) {
-        console.log("[v0] Signup successful, user created:", data.user.email)
-        // For development, auto-login after signup
-        const { data: loginData, error: loginError } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
-
-        if (loginError) {
-          setError("Account created but login failed. Please log in manually.")
-          router.push("/")
-        } else if (loginData.user) {
-          localStorage.setItem(
-            "user",
-            JSON.stringify({
-              email: loginData.user.email,
-              id: loginData.user.id,
-              role,
-              loginTime: new Date().toISOString(),
-            }),
-          )
-          router.push("/dashboard")
-        }
+      if (result.requiresEmailConfirmation) {
+        setError("Account created. Check your email to confirm your account, then sign in.")
+      } else {
+        router.push("/dashboard")
+        router.refresh()
       }
-    } catch (err: any) {
-      console.log("[v0] Signup exception:", err)
+    } catch {
       setError("An error occurred. Please try again.")
     } finally {
       setLoading(false)
@@ -161,23 +130,6 @@ export default function SignupPage() {
                   disabled={loading}
                   required
                 />
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="role" className="text-sm font-medium">
-                  Role
-                </label>
-                <Select value={role} onValueChange={setRole} disabled={loading}>
-                  <SelectTrigger id="role">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="student">Student</SelectItem>
-                    <SelectItem value="teacher">Teacher</SelectItem>
-                    <SelectItem value="branch_manager">Branch Manager</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="space-y-2">

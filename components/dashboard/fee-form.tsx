@@ -24,7 +24,7 @@ interface FeeFormProps {
 }
 
 export function FeeForm({ initialData, onSubmit }: FeeFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Fee, "id">>({
     studentName: "",
     studentEmail: "",
     course: "",
@@ -62,7 +62,7 @@ export function FeeForm({ initialData, onSubmit }: FeeFormProps) {
 
   useEffect(() => {
     if (initialData) {
-      setFormData(initialData)
+      setFormData({ ...initialData, paidDate: initialData.paidDate ?? "", paymentMethod: initialData.paymentMethod ?? "" })
     }
   }, [initialData])
 

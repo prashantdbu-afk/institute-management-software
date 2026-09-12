@@ -1,17 +1,8 @@
-"use client"
-
-import { useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { requireAuthoritativeUser } from "@/lib/auth/server"
 
-export default function DashboardPage() {
-  const [user, setUser] = useState<any>(null)
-
-  useEffect(() => {
-    const storedUser = localStorage.getItem("user")
-    if (storedUser) {
-      setUser(JSON.parse(storedUser))
-    }
-  }, [])
+export default async function DashboardPage() {
+  const user = await requireAuthoritativeUser()
 
   const AdminDashboard = () => (
     <div className="space-y-6">
@@ -178,14 +169,12 @@ export default function DashboardPage() {
     </div>
   )
 
-  if (!user) return null
-
   return (
     <div className="p-6">
-      {user.role === "admin" && <AdminDashboard />}
-      {user.role === "branch_manager" && <BranchManagerDashboard />}
-      {user.role === "teacher" && <TeacherDashboard />}
-      {user.role === "student" && <StudentDashboard />}
+      {user.role === "admin" && AdminDashboard()}
+      {user.role === "branch_manager" && BranchManagerDashboard()}
+      {user.role === "teacher" && TeacherDashboard()}
+      {user.role === "student" && StudentDashboard()}
     </div>
   )
 }

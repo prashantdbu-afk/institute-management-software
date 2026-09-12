@@ -21,9 +21,10 @@ import {
 import { useState } from "react"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
+import type { AuthoritativeUser } from "@/lib/auth/permissions"
 
 interface SidebarProps {
-  user: any
+  user: AuthoritativeUser
 }
 
 export function Sidebar({ user }: SidebarProps) {
@@ -34,8 +35,8 @@ export function Sidebar({ user }: SidebarProps) {
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    localStorage.removeItem("user")
-    router.push("/")
+    router.replace("/")
+    router.refresh()
   }
 
   const navItems = {

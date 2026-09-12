@@ -113,7 +113,7 @@ export default function TestResultsPage() {
   }
 
   const handleEdit = (item: TestResult) => {
-    setFormData(item)
+    setFormData({ ...item, notes: item.notes ?? "" })
     setEditingId(item.id)
     setShowForm(true)
   }
