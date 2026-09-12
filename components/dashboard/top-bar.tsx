@@ -6,18 +6,14 @@ import { LogOut, Bell, Settings } from "lucide-react"
 import Image from "next/image"
 import { createClient } from "@/lib/supabase/client"
 
-interface TopBarProps {
-  user: any
-}
-
-export function TopBar({ user }: TopBarProps) {
+export function TopBar() {
   const router = useRouter()
 
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
-    localStorage.removeItem("user")
-    router.push("/")
+    router.replace("/")
+    router.refresh()
   }
 
   return (

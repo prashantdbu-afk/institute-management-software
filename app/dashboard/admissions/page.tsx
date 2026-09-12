@@ -115,13 +115,13 @@ export default function AdmissionsPage() {
 
   const handleApproveAdmission = (id: string) => {
     const updated = admissions.map((a) =>
-      a.id === id ? { ...a, status: "approved", enrollmentDate: new Date().toISOString().split("T")[0] } : a,
+      a.id === id ? { ...a, status: "approved" as const, enrollmentDate: new Date().toISOString().split("T")[0] } : a,
     )
     saveAdmissions(updated)
   }
 
   const handleRejectAdmission = (id: string) => {
-    const updated = admissions.map((a) => (a.id === id ? { ...a, status: "rejected" } : a))
+    const updated = admissions.map((a) => (a.id === id ? { ...a, status: "rejected" as const } : a))
     saveAdmissions(updated)
   }
 

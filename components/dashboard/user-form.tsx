@@ -22,7 +22,7 @@ interface UserFormProps {
 }
 
 export function UserForm({ initialData, onSubmit }: UserFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<User, "id" | "createdAt">>({
     name: "",
     email: "",
     role: "student" as const,

@@ -1,8 +1,17 @@
 import { createClient } from "@/lib/supabase/server"
 import { NextResponse } from "next/server"
+import { getAppUrl } from "@/lib/server-env"
+import { publicSignupSchema } from "@/lib/auth/signup"
 
 export async function POST(request: Request) {
-  const { email, password, role, fullName } = await request.json()
+  let input
+  try {
+    input = publicSignupSchema.parse(await request.json())
+  } catch {
+    return NextResponse.json({ error: "Invalid signup request" }, { status: 400 })
+  }
+
+  const { email, password, firstName, lastName } = input
 
   const supabase = await createClient()
 
@@ -11,12 +20,10 @@ export async function POST(request: Request) {
     password,
     options: {
       data: {
-        role: role || "student",
-        full_name: fullName,
+        first_name: firstName,
+        last_name: lastName,
       },
-      emailRedirectTo:
-        process.env.NEXT_PUBLIC_DEV_SUPABASE_REDIRECT_URL ||
-        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/dashboard`,
+      emailRedirectTo: `${getAppUrl(request.url)}/dashboard`,
     },
   })
 
@@ -24,21 +31,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 })
   }
 
-  // Create profile entry
-  if (data.user) {
-    const { error: profileError } = await supabase.from("profiles").insert([
-      {
-        id: data.user.id,
-        email,
-        role: role || "student",
-        full_name: fullName,
-      },
-    ])
-
-    if (profileError) {
-      console.error("Profile creation error:", profileError)
-    }
-  }
-
-  return NextResponse.json(data, { status: 201 })
+  return NextResponse.json(
+    {
+      user: data.user ? { id: data.user.id, email: data.user.email } : null,
+      requiresEmailConfirmation: !data.session,
+    },
+    { status: 201 },
+  )
 }

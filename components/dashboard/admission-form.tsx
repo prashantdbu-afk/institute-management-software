@@ -25,14 +25,14 @@ interface AdmissionFormProps {
 }
 
 export function AdmissionForm({ initialData, onSubmit }: AdmissionFormProps) {
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<Omit<Admission, "id" | "appliedDate">>({
     studentName: "",
     parentName: "",
     email: "",
     phone: "",
     course: "",
     batch: "Batch A",
-    status: "pending" as const,
+    status: "pending",
     enrollmentDate: "",
   })
 
@@ -52,7 +52,7 @@ export function AdmissionForm({ initialData, onSubmit }: AdmissionFormProps) {
   useEffect(() => {
     if (initialData) {
       const { id, appliedDate, ...rest } = initialData
-      setFormData(rest)
+      setFormData({ ...rest, enrollmentDate: rest.enrollmentDate ?? "" })
     }
   }, [initialData])
 

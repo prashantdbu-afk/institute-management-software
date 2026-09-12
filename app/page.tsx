@@ -42,17 +42,8 @@ export default function LoginPage() {
 
       if (data.user) {
         console.log("[v0] Login successful for user:", data.user.email)
-        // Store user info in localStorage for client-side use
-        localStorage.setItem(
-          "user",
-          JSON.stringify({
-            email: data.user.email,
-            id: data.user.id,
-            role: data.user.user_metadata?.role || "student",
-            loginTime: new Date().toISOString(),
-          }),
-        )
         router.push("/dashboard")
+        router.refresh()
       }
     } catch (err: any) {
       console.log("[v0] Login error:", err)
@@ -61,13 +52,6 @@ export default function LoginPage() {
       setLoading(false)
     }
   }
-
-  const demoAccounts = [
-    { email: "admin@genius.com", password: "admin123", role: "Admin" },
-    { email: "manager@genius.com", password: "manager123", role: "Branch Manager" },
-    { email: "teacher@genius.com", password: "teacher123", role: "Teacher" },
-    { email: "student@genius.com", password: "student123", role: "Student" },
-  ]
 
   if (!mounted) return null
 
@@ -125,29 +109,12 @@ export default function LoginPage() {
             </form>
 
             <div className="text-center text-sm text-muted-foreground">
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <Link href="/auth/signup" className="text-primary hover:underline font-medium">
                 Sign up here
               </Link>
             </div>
 
-            <div className="mt-6 pt-4 border-t space-y-3">
-              <p className="text-xs text-muted-foreground font-semibold">Demo Accounts:</p>
-              {demoAccounts.map((account) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => {
-                    setEmail(account.email)
-                    setPassword(account.password)
-                  }}
-                  className="w-full text-left text-xs p-2 rounded hover:bg-muted transition-colors border border-transparent hover:border-muted-foreground/20"
-                >
-                  <div className="font-medium text-foreground">{account.role}</div>
-                  <div className="text-muted-foreground text-xs">{account.email}</div>
-                </button>
-              ))}
-            </div>
           </CardContent>
         </Card>
       </div>
