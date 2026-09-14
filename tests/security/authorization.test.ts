@@ -39,6 +39,7 @@ describe("dashboard authorization", () => {
     ["branch_manager", "/dashboard/courses", true],
     ["branch_manager", "/dashboard/branches", false],
     ["teacher", "/dashboard/homework", true],
+    ["teacher", "/dashboard/students", false],
     ["teacher", "/dashboard/fees", false],
     ["student", "/dashboard/courses", false],
     ["student", "/dashboard/users", false],

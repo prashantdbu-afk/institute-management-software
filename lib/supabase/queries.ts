@@ -22,6 +22,13 @@ import {
   type BatchDatabaseRow,
   type BatchUpdatePayload,
 } from "@/lib/batches/model"
+import {
+  admissionDatabaseRowSchema,
+  type AdmissionCreatePayload,
+  type AdmissionDatabaseRow,
+  type AdmissionUpdatePayload,
+} from "@/lib/admissions/model"
+import { enrollmentDatabaseRowSchema, type EnrollmentDatabaseRow } from "@/lib/enrollments/model"
 
 const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
 
@@ -156,31 +163,62 @@ export async function deleteBatch(id: string) {
   if (error) throw error
 }
 
-export async function getAdmissions() {
+const admissionColumns = "id, student_name, parent_name, email, phone, dob, address, course_id, batch_id, branch_id, status, notes, enrollment_date, created_at, updated_at"
+const enrollmentColumns = "id, student_id, admission_id, branch_id, course_id, batch_id, status, enrollment_date, created_at, updated_at"
+
+export async function getAdmissions(): Promise<AdmissionDatabaseRow[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("admissions").select("*").order("created_at", { ascending: false })
+  const { data, error } = await supabase.from("admissions").select(admissionColumns).order("created_at", { ascending: false })
   if (error) throw error
-  return data
+  return admissionDatabaseRowSchema.array().parse(data)
 }
 
-export async function createAdmission(admission: any) {
+export async function getAdmissionById(id: string): Promise<AdmissionDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("admissions").insert([admission]).select()
+  const { data, error } = await supabase.from("admissions").select(admissionColumns).eq("id", id).single()
   if (error) throw error
-  return data
+  return admissionDatabaseRowSchema.parse(data)
 }
 
-export async function updateAdmission(id: string, updates: any) {
+export async function createAdmission(admission: AdmissionCreatePayload): Promise<AdmissionDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("admissions").update(updates).eq("id", id).select()
+  const { data, error } = await supabase.from("admissions").insert(admission).select(admissionColumns).single()
   if (error) throw error
-  return data
+  return admissionDatabaseRowSchema.parse(data)
+}
+
+export async function updateAdmission(id: string, updates: AdmissionUpdatePayload): Promise<AdmissionDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("admissions").update(updates).eq("id", id).select(admissionColumns).single()
+  if (error) throw error
+  return admissionDatabaseRowSchema.parse(data)
+}
+
+export async function approveAdmission(id: string): Promise<EnrollmentDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("approve_admission", { p_admission_id: id })
+  if (error) throw error
+  return enrollmentDatabaseRowSchema.parse(data)
+}
+
+export async function rejectAdmission(id: string): Promise<AdmissionDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.rpc("reject_admission", { p_admission_id: id })
+  if (error) throw error
+  return admissionDatabaseRowSchema.parse(data)
 }
 
 export async function deleteAdmission(id: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from("admissions").delete().eq("id", id)
+  const { error } = await supabase.from("admissions").delete().eq("id", id).select("id").single()
   if (error) throw error
+}
+
+export async function getStudentEnrollments(): Promise<EnrollmentDatabaseRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("student_enrollments").select(enrollmentColumns).order("enrollment_date", { ascending: false })
+  if (error) throw error
+  return enrollmentDatabaseRowSchema.array().parse(data)
 }
 
 export async function getTimetable() {
