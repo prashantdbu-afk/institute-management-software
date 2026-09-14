@@ -12,9 +12,9 @@ export interface AuthoritativeUser {
 
 const dashboardAccess: Record<UserRole, readonly string[]> = {
   admin: ["*"],
-  branch_manager: ["", "students", "teachers", "admissions", "timetable", "fees", "stock", "homework", "test-results"],
+  branch_manager: ["", "courses", "students", "teachers", "admissions", "timetable", "fees", "stock", "homework", "test-results"],
   teacher: ["", "students", "timetable", "homework", "test-results", "classes", "assignments"],
-  student: ["", "courses", "timetable", "fees", "homework", "test-results", "assignments"],
+  student: ["", "timetable", "fees", "homework", "test-results", "assignments"],
 }
 
 export function isUserRole(value: unknown): value is UserRole {

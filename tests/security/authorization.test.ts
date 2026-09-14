@@ -36,10 +36,11 @@ describe("dashboard authorization", () => {
   it.each([
     ["admin", "/dashboard/users", true],
     ["branch_manager", "/dashboard/admissions", true],
+    ["branch_manager", "/dashboard/courses", true],
     ["branch_manager", "/dashboard/branches", false],
     ["teacher", "/dashboard/homework", true],
     ["teacher", "/dashboard/fees", false],
-    ["student", "/dashboard/courses", true],
+    ["student", "/dashboard/courses", false],
     ["student", "/dashboard/users", false],
   ] as const)("applies %s access to %s", (role, path, expected) => {
     expect(canAccessDashboardPath(role, path)).toBe(expected)
