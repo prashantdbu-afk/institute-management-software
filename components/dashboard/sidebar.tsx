@@ -46,6 +46,7 @@ export function Sidebar({ user }: SidebarProps) {
       { label: "Users", icon: Users, href: "/dashboard/users" },
       { label: "Courses", icon: BookOpen, href: "/dashboard/courses" },
       { label: "Admissions", icon: Users, href: "/dashboard/admissions" },
+      { label: "Students", icon: Users, href: "/dashboard/students" },
       { label: "Timetable", icon: Clock, href: "/dashboard/timetable" },
       { label: "Fees", icon: DollarSign, href: "/dashboard/fees" },
       { label: "Stock", icon: Package, href: "/dashboard/stock" },
@@ -67,7 +68,6 @@ export function Sidebar({ user }: SidebarProps) {
     teacher: [
       { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
       { label: "My Classes", icon: BookOpen, href: "/dashboard/classes" },
-      { label: "Students", icon: Users, href: "/dashboard/students" },
       { label: "Timetable", icon: Clock, href: "/dashboard/timetable" },
       { label: "Assignments", icon: BookOpen, href: "/dashboard/assignments" },
       { label: "Homework", icon: FileText, href: "/dashboard/homework" },

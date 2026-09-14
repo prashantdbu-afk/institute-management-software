@@ -13,7 +13,7 @@ export interface AuthoritativeUser {
 const dashboardAccess: Record<UserRole, readonly string[]> = {
   admin: ["*"],
   branch_manager: ["", "courses", "students", "teachers", "admissions", "timetable", "fees", "stock", "homework", "test-results"],
-  teacher: ["", "students", "timetable", "homework", "test-results", "classes", "assignments"],
+  teacher: ["", "timetable", "homework", "test-results", "classes", "assignments"],
   student: ["", "timetable", "fees", "homework", "test-results", "assignments"],
 }
 

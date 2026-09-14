@@ -1,171 +1,55 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useMemo, useState, type FormEvent, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { admissionFormSchema, type AdmissionFormData, type AdmissionViewModel } from "@/lib/admissions/model"
+import type { BatchViewModel } from "@/lib/batches/model"
+import type { BranchOption, CourseViewModel } from "@/lib/courses/model"
 
-interface Admission {
-  id: string
-  studentName: string
-  parentName: string
-  email: string
-  phone: string
-  course: string
-  batch: string
-  status: "pending" | "approved" | "rejected"
-  appliedDate: string
-  enrollmentDate?: string
+interface Props {
+  initialData?: AdmissionViewModel | null
+  branches: BranchOption[]
+  courses: CourseViewModel[]
+  batches: BatchViewModel[]
+  isSubmitting: boolean
+  onSubmit: (data: AdmissionFormData) => Promise<void>
 }
 
-interface AdmissionFormProps {
-  initialData?: Admission | null
-  onSubmit: (data: Omit<Admission, "id" | "appliedDate">) => void
+const emptyForm: AdmissionFormData = { studentName: "", parentName: "", email: "", phone: "", dob: "", address: "", branchId: "", courseId: "", batchId: "", notes: "" }
+
+export function AdmissionForm({ initialData, branches, courses, batches, isSubmitting, onSubmit }: Props) {
+  const [data, setData] = useState<AdmissionFormData>(initialData ?? { ...emptyForm, branchId: branches[0]?.id ?? "" })
+  const [error, setError] = useState("")
+  const availableCourses = useMemo(() => courses.filter((item) => item.branchId === data.branchId), [courses, data.branchId])
+  const availableBatches = useMemo(() => batches.filter((item) => item.branchId === data.branchId && item.courseId === data.courseId), [batches, data.branchId, data.courseId])
+  const change = (name: keyof AdmissionFormData, value: string) => {
+    setError("")
+    setData((current) => name === "branchId" ? { ...current, branchId: value, courseId: "", batchId: "" } : name === "courseId" ? { ...current, courseId: value, batchId: "" } : { ...current, [name]: value })
+  }
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    const parsed = admissionFormSchema.safeParse(data)
+    if (!parsed.success) return setError(parsed.error.issues[0]?.message ?? "Check the admission details.")
+    await onSubmit(parsed.data)
+  }
+
+  return <form onSubmit={submit} className="max-h-[75vh] space-y-4 overflow-y-auto pr-1">
+    {error && <p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+    <Field label="Student Name" required><Input value={data.studentName} onChange={(e) => change("studentName", e.target.value)} required /></Field>
+    <Field label="Parent/Guardian Name"><Input value={data.parentName} onChange={(e) => change("parentName", e.target.value)} /></Field>
+    <Field label="Email" required><Input type="email" value={data.email} onChange={(e) => change("email", e.target.value)} required /></Field>
+    <Field label="Phone"><Input value={data.phone} onChange={(e) => change("phone", e.target.value)} /></Field>
+    <Field label="Date of Birth"><Input type="date" value={data.dob} onChange={(e) => change("dob", e.target.value)} /></Field>
+    <Field label="Address"><Input value={data.address} onChange={(e) => change("address", e.target.value)} /></Field>
+    <Field label="Branch" required><select className="w-full rounded-md border border-input bg-background px-3 py-2" value={data.branchId} onChange={(e) => change("branchId", e.target.value)} required><option value="">Select a branch</option>{branches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+    <Field label="Course" required><select className="w-full rounded-md border border-input bg-background px-3 py-2" value={data.courseId} onChange={(e) => change("courseId", e.target.value)} required disabled={!data.branchId}><option value="">Select a course</option>{availableCourses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+    <Field label="Batch" required><select className="w-full rounded-md border border-input bg-background px-3 py-2" value={data.batchId} onChange={(e) => change("batchId", e.target.value)} required disabled={!data.courseId}><option value="">Select a batch</option>{availableBatches.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
+    <Field label="Notes"><textarea className="min-h-20 w-full rounded-md border border-input bg-background px-3 py-2 text-sm" value={data.notes} onChange={(e) => change("notes", e.target.value)} /></Field>
+    <Button type="submit" className="w-full" disabled={isSubmitting}>{isSubmitting ? "Saving..." : initialData ? "Update Admission" : "Submit Application"}</Button>
+  </form>
 }
 
-export function AdmissionForm({ initialData, onSubmit }: AdmissionFormProps) {
-  const [formData, setFormData] = useState<Omit<Admission, "id" | "appliedDate">>({
-    studentName: "",
-    parentName: "",
-    email: "",
-    phone: "",
-    course: "",
-    batch: "Batch A",
-    status: "pending",
-    enrollmentDate: "",
-  })
-
-  const [courses, setCourses] = useState<string[]>([])
-
-  useEffect(() => {
-    // Load courses from localStorage
-    const saved = localStorage.getItem("courses")
-    if (saved) {
-      const courseList = JSON.parse(saved)
-      setCourses(courseList.map((c: any) => c.name))
-    } else {
-      setCourses(["Web Development", "Python Basics", "UI/UX Design", "Data Science"])
-    }
-  }, [])
-
-  useEffect(() => {
-    if (initialData) {
-      const { id, appliedDate, ...rest } = initialData
-      setFormData({ ...rest, enrollmentDate: rest.enrollmentDate ?? "" })
-    }
-  }, [initialData])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.studentName.trim() || !formData.email.trim() || !formData.course.trim()) {
-      alert("Please fill in all required fields")
-      return
-    }
-    onSubmit(formData)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Student Name *</label>
-        <Input
-          name="studentName"
-          placeholder="Full name"
-          value={formData.studentName}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Parent/Guardian Name</label>
-        <Input name="parentName" placeholder="Parent name" value={formData.parentName} onChange={handleChange} />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Email *</label>
-        <Input
-          name="email"
-          type="email"
-          placeholder="student@email.com"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Phone</label>
-        <Input name="phone" placeholder="+91-98765-43210" value={formData.phone} onChange={handleChange} />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Course *</label>
-        <select
-          name="course"
-          value={formData.course}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-          required
-        >
-          <option value="">Select a course</option>
-          {courses.map((course) => (
-            <option key={course} value={course}>
-              {course}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Batch</label>
-        <select
-          name="batch"
-          value={formData.batch}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-        >
-          <option value="Batch A">Batch A</option>
-          <option value="Batch B">Batch B</option>
-          <option value="Batch C">Batch C</option>
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Status</label>
-        <select
-          name="status"
-          value={formData.status}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-        >
-          <option value="pending">Pending</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-        </select>
-      </div>
-
-      {formData.status === "approved" && (
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Enrollment Date</label>
-          <Input name="enrollmentDate" type="date" value={formData.enrollmentDate} onChange={handleChange} />
-        </div>
-      )}
-
-      <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1">
-          {initialData ? "Update Admission" : "Submit Application"}
-        </Button>
-      </div>
-    </form>
-  )
+function Field({ label, required, children }: { label: string; required?: boolean; children: ReactNode }) {
+  return <label className="block space-y-2"><span className="text-sm font-medium">{label}{required ? " *" : ""}</span>{children}</label>
 }
