@@ -1,29 +1,42 @@
 import { createClient } from "./server"
+import {
+  branchDatabaseRowSchema,
+  type BranchCreatePayload,
+  type BranchDatabaseRow,
+  type BranchUpdatePayload,
+} from "@/lib/branches/model"
 
-export async function getBranches() {
+const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
+
+export async function getBranches(): Promise<BranchDatabaseRow[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("branches").select("*").order("created_at", { ascending: false })
+  const { data, error } = await supabase.from("branches").select(branchColumns).order("created_at", { ascending: false })
   if (error) throw error
-  return data
+  return branchDatabaseRowSchema.array().parse(data)
 }
 
-export async function createBranch(branch: any) {
+export async function createBranch(branch: BranchCreatePayload): Promise<BranchDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("branches").insert([branch]).select()
+  const { data, error } = await supabase.from("branches").insert(branch).select(branchColumns).single()
   if (error) throw error
-  return data
+  return branchDatabaseRowSchema.parse(data)
 }
 
-export async function updateBranch(id: string, updates: any) {
+export async function updateBranch(id: string, updates: BranchUpdatePayload): Promise<BranchDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("branches").update(updates).eq("id", id).select()
+  const { data, error } = await supabase
+    .from("branches")
+    .update(updates)
+    .eq("id", id)
+    .select(branchColumns)
+    .single()
   if (error) throw error
-  return data
+  return branchDatabaseRowSchema.parse(data)
 }
 
 export async function deleteBranch(id: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from("branches").delete().eq("id", id)
+  const { error } = await supabase.from("branches").delete().eq("id", id).select("id").single()
   if (error) throw error
 }
 

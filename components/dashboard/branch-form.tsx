@@ -1,119 +1,77 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useState, type ChangeEvent, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
-interface Branch {
-  id: string
-  name: string
-  address: string
-  city: string
-  phone: string
-  email: string
-  students: number
-  teachers: number
-  createdAt: string
-}
+import { branchFormSchema, type BranchFormData, type BranchViewModel } from "@/lib/branches/model"
 
 interface BranchFormProps {
-  initialData?: Branch | null
-  onSubmit: (data: Omit<Branch, "id" | "createdAt">) => void
+  initialData?: BranchViewModel | null
+  onSubmit: (data: BranchFormData) => Promise<void> | void
+  isSubmitting?: boolean
+  error?: string
 }
 
-export function BranchForm({ initialData, onSubmit }: BranchFormProps) {
-  const [formData, setFormData] = useState({
-    name: "",
-    address: "",
-    city: "",
-    phone: "",
-    email: "",
-    students: 0,
-    teachers: 0,
+export function BranchForm({ initialData, onSubmit, isSubmitting = false, error = "" }: BranchFormProps) {
+  const [formData, setFormData] = useState<BranchFormData>({
+    name: initialData?.name ?? "",
+    address: initialData?.address ?? "",
+    city: initialData?.city ?? "",
+    phone: initialData?.phone ?? "",
+    email: initialData?.email ?? "",
   })
+  const [validationError, setValidationError] = useState("")
 
-  useEffect(() => {
-    if (initialData) {
-      const { id, createdAt, ...rest } = initialData
-      setFormData(rest)
-    }
-  }, [initialData])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "students" || name === "teachers" ? Number.parseInt(value) || 0 : value,
-    }))
+  const handleChange = (event: ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = event.target
+    setFormData((current) => ({ ...current, [name]: value }))
+    setValidationError("")
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name.trim() || !formData.email.trim()) {
-      alert("Please fill in all required fields")
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    const parsed = branchFormSchema.safeParse(formData)
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message ?? "Please check the branch details.")
       return
     }
-    onSubmit(formData)
+    await onSubmit(parsed.data)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Branch Name *</label>
-        <Input name="name" placeholder="e.g., Main Campus" value={formData.name} onChange={handleChange} required />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Address *</label>
-        <Input
-          name="address"
-          placeholder="e.g., 123 Education Street"
-          value={formData.address}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">City *</label>
-        <Input name="city" placeholder="e.g., Mumbai" value={formData.city} onChange={handleChange} required />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Phone Number *</label>
-        <Input name="phone" placeholder="+91-22-1234-5678" value={formData.phone} onChange={handleChange} required />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Email *</label>
-        <Input
-          name="email"
-          type="email"
-          placeholder="branch@institute.com"
-          value={formData.email}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Number of Students</label>
-          <Input name="students" type="number" min="0" value={formData.students} onChange={handleChange} />
+      {(validationError || error) && (
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+          {validationError || error}
         </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Number of Teachers</label>
-          <Input name="teachers" type="number" min="0" value={formData.teachers} onChange={handleChange} />
-        </div>
+      )}
+      <div className="space-y-2">
+        <label htmlFor="branch-name" className="text-sm font-medium">Branch Name *</label>
+        <Input id="branch-name" name="name" value={formData.name} onChange={handleChange} required disabled={isSubmitting} />
       </div>
 
-      <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1">
-          {initialData ? "Update Branch" : "Add Branch"}
-        </Button>
+      <div className="space-y-2">
+        <label htmlFor="branch-address" className="text-sm font-medium">Address *</label>
+        <Input id="branch-address" name="address" value={formData.address} onChange={handleChange} required disabled={isSubmitting} />
       </div>
+
+      <div className="space-y-2">
+        <label htmlFor="branch-city" className="text-sm font-medium">City *</label>
+        <Input id="branch-city" name="city" value={formData.city} onChange={handleChange} required disabled={isSubmitting} />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="branch-phone" className="text-sm font-medium">Phone Number</label>
+        <Input id="branch-phone" name="phone" type="tel" value={formData.phone} onChange={handleChange} disabled={isSubmitting} />
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="branch-email" className="text-sm font-medium">Email *</label>
+        <Input id="branch-email" name="email" type="email" value={formData.email} onChange={handleChange} required disabled={isSubmitting} />
+      </div>
+      <Button type="submit" className="w-full" disabled={isSubmitting}>
+        {isSubmitting ? "Saving..." : initialData ? "Update Branch" : "Add Branch"}
+      </Button>
     </form>
   )
 }
