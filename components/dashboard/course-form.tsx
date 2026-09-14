@@ -1,140 +1,113 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useMemo, useState, type ChangeEvent, type FormEvent } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-
-interface Course {
-  id: string
-  name: string
-  description: string
-  level: "Beginner" | "Intermediate" | "Advanced"
-  duration: string
-  maxStudents: number
-  enrolledStudents: number
-  instructor: string
-  price: number
-  createdAt: string
-}
+import {
+  courseFormSchema,
+  courseLevels,
+  type BranchOption,
+  type CourseFormData,
+  type CourseViewModel,
+  type TeacherOption,
+} from "@/lib/courses/model"
 
 interface CourseFormProps {
-  initialData?: Course | null
-  onSubmit: (data: Omit<Course, "id" | "createdAt">) => void
+  initialData?: CourseViewModel | null
+  branches: BranchOption[]
+  teachers: TeacherOption[]
+  onSubmit: (data: CourseFormData) => Promise<void> | void
+  isSubmitting?: boolean
+  error?: string
 }
 
-export function CourseForm({ initialData, onSubmit }: CourseFormProps) {
-  const [formData, setFormData] = useState<Omit<Course, "id" | "createdAt">>({
-    name: "",
-    description: "",
-    level: "Beginner" as const,
-    duration: "",
-    maxStudents: 30,
-    enrolledStudents: 0,
-    instructor: "",
-    price: 0,
+export function CourseForm({ initialData, branches, teachers, onSubmit, isSubmitting = false, error = "" }: CourseFormProps) {
+  const [formData, setFormData] = useState<CourseFormData>({
+    name: initialData?.name ?? "",
+    description: initialData?.description ?? "",
+    level: initialData?.level ?? "Beginner",
+    durationHours: initialData?.durationHours ?? 0,
+    instructorId: initialData?.instructorId ?? null,
+    price: initialData?.price ?? 0,
+    branchId: initialData?.branchId ?? branches[0]?.id ?? "",
   })
+  const [validationError, setValidationError] = useState("")
+  const availableTeachers = useMemo(
+    () => teachers.filter((teacher) => teacher.branchId === formData.branchId),
+    [formData.branchId, teachers],
+  )
 
-  useEffect(() => {
-    if (initialData) {
-      const { id, createdAt, ...rest } = initialData
-      setFormData(rest)
-    }
-  }, [initialData])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: ["maxStudents", "enrolledStudents", "price"].includes(name) ? Number.parseInt(value) || 0 : value,
-    }))
+  const handleChange = (event: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = event.target
+    setFormData((current) => {
+      if (name === "durationHours" || name === "price") return { ...current, [name]: Number(value) }
+      if (name === "instructorId") return { ...current, instructorId: value || null }
+      if (name === "branchId") return { ...current, branchId: value, instructorId: null }
+      return { ...current, [name]: value }
+    })
+    setValidationError("")
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.name.trim() || !formData.instructor.trim()) {
-      alert("Please fill in all required fields")
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault()
+    const parsed = courseFormSchema.safeParse(formData)
+    if (!parsed.success) {
+      setValidationError(parsed.error.issues[0]?.message ?? "Please check the course details.")
       return
     }
-    onSubmit(formData)
+    await onSubmit(parsed.data)
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {(validationError || error) ? (
+        <div className="rounded-md border border-destructive/20 bg-destructive/10 p-3 text-sm text-destructive" role="alert">
+          {validationError || error}
+        </div>
+      ) : null}
       <div className="space-y-2">
-        <label className="text-sm font-medium">Course Name *</label>
-        <Input name="name" placeholder="Web Development" value={formData.name} onChange={handleChange} required />
+        <label htmlFor="course-name" className="text-sm font-medium">Course Name *</label>
+        <Input id="course-name" name="name" value={formData.name} onChange={handleChange} required disabled={isSubmitting} />
       </div>
-
       <div className="space-y-2">
-        <label className="text-sm font-medium">Description</label>
-        <textarea
-          name="description"
-          placeholder="Course description..."
-          value={formData.description}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-          rows={3}
-        />
+        <label htmlFor="course-description" className="text-sm font-medium">Description</label>
+        <textarea id="course-description" name="description" value={formData.description} onChange={handleChange} disabled={isSubmitting} className="w-full rounded-md border border-input bg-background px-3 py-2" rows={3} />
       </div>
-
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <label htmlFor="course-branch" className="text-sm font-medium">Branch *</label>
+          <select id="course-branch" name="branchId" value={formData.branchId} onChange={handleChange} disabled={isSubmitting} required className="w-full rounded-md border border-input bg-background px-3 py-2">
+            <option value="">Select branch</option>
+            {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+          </select>
+        </div>
+        <div className="space-y-2">
+          <label htmlFor="course-level" className="text-sm font-medium">Level *</label>
+          <select id="course-level" name="level" value={formData.level} onChange={handleChange} disabled={isSubmitting} className="w-full rounded-md border border-input bg-background px-3 py-2">
+            {courseLevels.map((level) => <option key={level} value={level}>{level}</option>)}
+          </select>
+        </div>
+      </div>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Level</label>
-        <select
-          name="level"
-          value={formData.level}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-        >
-          <option value="Beginner">Beginner</option>
-          <option value="Intermediate">Intermediate</option>
-          <option value="Advanced">Advanced</option>
+        <label htmlFor="course-instructor" className="text-sm font-medium">Instructor</label>
+        <select id="course-instructor" name="instructorId" value={formData.instructorId ?? ""} onChange={handleChange} disabled={isSubmitting} className="w-full rounded-md border border-input bg-background px-3 py-2">
+          <option value="">Unassigned</option>
+          {availableTeachers.map((teacher) => <option key={teacher.id} value={teacher.id}>{teacher.name}</option>)}
         </select>
       </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Duration</label>
-        <Input name="duration" placeholder="3 months" value={formData.duration} onChange={handleChange} />
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Instructor *</label>
-        <Input
-          name="instructor"
-          placeholder="Instructor name"
-          value={formData.instructor}
-          onChange={handleChange}
-          required
-        />
-      </div>
-
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
-          <label className="text-sm font-medium">Max Students</label>
-          <Input name="maxStudents" type="number" min="1" value={formData.maxStudents} onChange={handleChange} />
+          <label htmlFor="course-duration" className="text-sm font-medium">Duration (hours)</label>
+          <Input id="course-duration" name="durationHours" type="number" min="0" value={formData.durationHours} onChange={handleChange} disabled={isSubmitting} />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium">Enrolled</label>
-          <Input
-            name="enrolledStudents"
-            type="number"
-            min="0"
-            value={formData.enrolledStudents}
-            onChange={handleChange}
-          />
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Price (₹)</label>
-          <Input name="price" type="number" min="0" value={formData.price} onChange={handleChange} />
+          <label htmlFor="course-price" className="text-sm font-medium">Price (₹)</label>
+          <Input id="course-price" name="price" type="number" min="0" step="0.01" value={formData.price} onChange={handleChange} disabled={isSubmitting} />
         </div>
       </div>
-
-      <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1">
-          {initialData ? "Update Course" : "Add Course"}
-        </Button>
-      </div>
+      <Button type="submit" className="w-full" disabled={isSubmitting || branches.length === 0}>
+        {isSubmitting ? "Saving..." : initialData ? "Update Course" : "Add Course"}
+      </Button>
     </form>
   )
 }

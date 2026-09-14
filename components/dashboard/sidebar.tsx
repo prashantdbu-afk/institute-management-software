@@ -54,6 +54,7 @@ export function Sidebar({ user }: SidebarProps) {
     ],
     branch_manager: [
       { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
+      { label: "Courses & Batches", icon: BookOpen, href: "/dashboard/courses" },
       { label: "Students", icon: Users, href: "/dashboard/students" },
       { label: "Teachers", icon: Users, href: "/dashboard/teachers" },
       { label: "Admissions", icon: Users, href: "/dashboard/admissions" },
@@ -74,7 +75,6 @@ export function Sidebar({ user }: SidebarProps) {
     ],
     student: [
       { label: "Dashboard", icon: LayoutDashboard, href: "/dashboard" },
-      { label: "My Courses", icon: BookOpen, href: "/dashboard/courses" },
       { label: "Timetable", icon: Clock, href: "/dashboard/timetable" },
       { label: "Fees", icon: DollarSign, href: "/dashboard/fees" },
       { label: "Assignments", icon: BookOpen, href: "/dashboard/assignments" },

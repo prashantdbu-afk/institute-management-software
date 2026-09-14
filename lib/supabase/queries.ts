@@ -5,6 +5,23 @@ import {
   type BranchDatabaseRow,
   type BranchUpdatePayload,
 } from "@/lib/branches/model"
+import {
+  branchOptionRowSchema,
+  courseDatabaseRowSchema,
+  mapTeacherOption,
+  teacherOptionRowSchema,
+  type BranchOption,
+  type CourseCreatePayload,
+  type CourseDatabaseRow,
+  type CourseUpdatePayload,
+  type TeacherOption,
+} from "@/lib/courses/model"
+import {
+  batchDatabaseRowSchema,
+  type BatchCreatePayload,
+  type BatchDatabaseRow,
+  type BatchUpdatePayload,
+} from "@/lib/batches/model"
 
 const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
 
@@ -61,30 +78,81 @@ export async function updateProfile(id: string, updates: any) {
   return data
 }
 
-export async function getCourses() {
+const courseColumns = "id, name, description, level, duration_hours, instructor_id, price, branch_id, created_at, updated_at"
+const batchColumns = "id, name, course_id, start_date, end_date, teacher_id, capacity, current_enrollment, branch_id, created_at, updated_at"
+
+export async function getCourseReferences(): Promise<{ branches: BranchOption[]; teachers: TeacherOption[] }> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("courses").select("*").order("created_at", { ascending: false })
-  if (error) throw error
-  return data
+  const [branchesResult, teachersResult] = await Promise.all([
+    supabase.from("branches").select("id, name").order("name"),
+    supabase.from("profiles").select("id, full_name, email, branch_id").eq("role", "teacher").order("full_name"),
+  ])
+  if (branchesResult.error) throw branchesResult.error
+  if (teachersResult.error) throw teachersResult.error
+  return {
+    branches: branchOptionRowSchema.array().parse(branchesResult.data),
+    teachers: teacherOptionRowSchema.array().parse(teachersResult.data).map(mapTeacherOption),
+  }
 }
 
-export async function createCourse(course: any) {
+export async function getCourses(): Promise<CourseDatabaseRow[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("courses").insert([course]).select()
+  const { data, error } = await supabase.from("courses").select(courseColumns).order("created_at", { ascending: false })
   if (error) throw error
-  return data
+  return courseDatabaseRowSchema.array().parse(data)
 }
 
-export async function updateCourse(id: string, updates: any) {
+export async function getCourseById(id: string): Promise<CourseDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("courses").update(updates).eq("id", id).select()
+  const { data, error } = await supabase.from("courses").select(courseColumns).eq("id", id).single()
   if (error) throw error
-  return data
+  return courseDatabaseRowSchema.parse(data)
+}
+
+export async function createCourse(course: CourseCreatePayload): Promise<CourseDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("courses").insert(course).select(courseColumns).single()
+  if (error) throw error
+  return courseDatabaseRowSchema.parse(data)
+}
+
+export async function updateCourse(id: string, updates: CourseUpdatePayload): Promise<CourseDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("courses").update(updates).eq("id", id).select(courseColumns).single()
+  if (error) throw error
+  return courseDatabaseRowSchema.parse(data)
 }
 
 export async function deleteCourse(id: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from("courses").delete().eq("id", id)
+  const { error } = await supabase.from("courses").delete().eq("id", id).select("id").single()
+  if (error) throw error
+}
+
+export async function getBatches(): Promise<BatchDatabaseRow[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("batches").select(batchColumns).order("created_at", { ascending: false })
+  if (error) throw error
+  return batchDatabaseRowSchema.array().parse(data)
+}
+
+export async function createBatch(batch: BatchCreatePayload): Promise<BatchDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("batches").insert(batch).select(batchColumns).single()
+  if (error) throw error
+  return batchDatabaseRowSchema.parse(data)
+}
+
+export async function updateBatch(id: string, updates: BatchUpdatePayload): Promise<BatchDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("batches").update(updates).eq("id", id).select(batchColumns).single()
+  if (error) throw error
+  return batchDatabaseRowSchema.parse(data)
+}
+
+export async function deleteBatch(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from("batches").delete().eq("id", id).select("id").single()
   if (error) throw error
 }
 
