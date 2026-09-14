@@ -41,7 +41,7 @@ describe("course mapping and validation", () => {
 
 describe("course behavior and access", () => {
   it("enforces authoritative branch management", () => {
-    const manager = { id: "u", email: "m@example.com", role: "branch_manager" as const, branchId: course.branchId, fullName: null }
+    const manager = { id: "u", email: "m@example.com", role: "branch_manager" as const, branchId: course.branchId, fullName: null, status: "active" as const }
     expect(canManageBranch(manager, course.branchId)).toBe(true)
     expect(canManageBranch(manager, "33333333-3333-4333-8333-333333333333")).toBe(false)
     expect(canManageCourses("admin")).toBe(true)

@@ -17,3 +17,7 @@ export function getSupabaseEnvironment() {
     NEXT_PUBLIC_SUPABASE_ANON_KEY: string
   }
 }
+
+export function getSupabaseServiceRoleKey() {
+  return process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || null
+}

@@ -8,6 +8,7 @@ export interface AuthoritativeUser {
   role: UserRole
   branchId: string | null
   fullName: string | null
+  status: "active" | "inactive"
 }
 
 const dashboardAccess: Record<UserRole, readonly string[]> = {

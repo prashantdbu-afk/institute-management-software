@@ -29,6 +29,8 @@ import {
   type AdmissionUpdatePayload,
 } from "@/lib/admissions/model"
 import { enrollmentDatabaseRowSchema, type EnrollmentDatabaseRow } from "@/lib/enrollments/model"
+import { profileDatabaseRowSchema, type ProfileDatabaseRow } from "@/lib/users/model"
+import { teacherAssignmentRowSchema, teacherDetailRowSchema, type TeacherAssignmentRow, type TeacherDetailRow } from "@/lib/teachers/model"
 
 const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
 
@@ -64,26 +66,31 @@ export async function deleteBranch(id: string) {
   if (error) throw error
 }
 
-export async function getProfiles() {
+const profileColumns = "id, email, full_name, phone, role, branch_id, status, created_at, updated_at"
+
+export async function getProfiles(): Promise<ProfileDatabaseRow[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("profiles").select("*").order("created_at", { ascending: false })
+  const { data, error } = await supabase.from("profiles").select(profileColumns).order("created_at", { ascending: false })
   if (error) throw error
-  return data
+  return profileDatabaseRowSchema.array().parse(data)
 }
 
-export async function createProfile(profile: any) {
+export async function updateProfile(id: string, updates: Partial<Pick<ProfileDatabaseRow, "email" | "full_name" | "phone" | "role" | "branch_id" | "status">>): Promise<ProfileDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("profiles").insert([profile]).select()
+  const { data, error } = await supabase.from("profiles").update(updates).eq("id", id).select(profileColumns).single()
   if (error) throw error
-  return data
+  return profileDatabaseRowSchema.parse(data)
 }
 
-export async function updateProfile(id: string, updates: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("profiles").update(updates).eq("id", id).select()
-  if (error) throw error
-  return data
+export async function updateTeacherIdentity(id: string, fullName: string, phone: string): Promise<ProfileDatabaseRow> {
+  const supabase = await createClient(); const { data, error } = await supabase.rpc("update_teacher_identity", { p_teacher_id: id, p_full_name: fullName, p_phone: phone })
+  if (error) throw error; return profileDatabaseRowSchema.parse(data)
 }
+
+export async function getTeacherDetails(): Promise<TeacherDetailRow[]> { const supabase=await createClient(); const {data,error}=await supabase.from("teacher_details").select("teacher_id, branch_id, qualification, specialization, experience_years, status, joining_date, created_at, updated_at").order("created_at",{ascending:false}); if(error) throw error; return teacherDetailRowSchema.array().parse(data) }
+export async function getTeacherAssignments(): Promise<TeacherAssignmentRow[]> { const supabase=await createClient(); const {data,error}=await supabase.from("teacher_course_assignments").select("id, teacher_id, course_id, branch_id, status, created_at, updated_at"); if(error) throw error; return teacherAssignmentRowSchema.array().parse(data) }
+export async function upsertTeacherDetail(detail: Omit<TeacherDetailRow,"created_at"|"updated_at">): Promise<TeacherDetailRow> { const supabase=await createClient(); const {data,error}=await supabase.from("teacher_details").upsert(detail,{onConflict:"teacher_id"}).select().single(); if(error) throw error; return teacherDetailRowSchema.parse(data) }
+export async function replaceTeacherAssignments(teacherId:string, branchId:string, courseIds:string[]) { const supabase=await createClient(); const {data,error}=await supabase.rpc("replace_teacher_course_assignments",{p_teacher_id:teacherId,p_branch_id:branchId,p_course_ids:courseIds}); if(error) throw error; return teacherAssignmentRowSchema.array().parse(data) }
 
 const courseColumns = "id, name, description, level, duration_hours, instructor_id, price, branch_id, created_at, updated_at"
 const batchColumns = "id, name, course_id, start_date, end_date, teacher_id, capacity, current_enrollment, branch_id, created_at, updated_at"
