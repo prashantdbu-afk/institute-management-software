@@ -1,13 +1,20 @@
 "use server"
 
 import { revalidatePath } from "next/cache"
+import { headers } from "next/headers"
 import { z } from "zod"
 import { requireRole } from "@/lib/auth/server"
-import { createAdminClient } from "@/lib/supabase/admin"
+import { createAdminClient, inviteAuthUser } from "@/lib/supabase/admin"
 import { getBranches, getTeacherDetails, updateProfile } from "@/lib/supabase/queries"
 import { getUserErrorMessage, mapProfileRow, userFormSchema, type UserViewModel } from "@/lib/users/model"
 
 type Result = { ok: true; user: UserViewModel; invitationSent?: boolean } | { ok: false; error: string }
+
+async function inviteRedirectUrl() {
+  const origin = (await headers()).get("origin")
+  if (!origin || !/^https?:\/\//.test(origin)) throw new Error("Unable to determine the application URL")
+  return new URL("/auth/invite", origin).toString()
+}
 
 async function validateBranch(role: string, branchId: string | null) {
   if (role === "admin") return branchId === null
@@ -22,13 +29,12 @@ export async function provisionUserAction(input: unknown): Promise<Result> {
   let createdId: string | null = null
   try {
     const admin=createAdminClient()
-    const {data,error}=await admin.auth.admin.inviteUserByEmail(parsed.data.email,{data:{first_name:parsed.data.fullName}})
-    if(error||!data.user) throw error ?? new Error("Invitation did not create an Auth user")
-    createdId=data.user.id
+    const invitation=await inviteAuthUser(parsed.data.email,parsed.data.fullName,await inviteRedirectUrl())
+    createdId=invitation.user.id
     const {data:profile,error:profileError}=await admin.from("profiles").update({email:parsed.data.email,full_name:parsed.data.fullName,phone:parsed.data.phone||null,role:parsed.data.role,branch_id:parsed.data.branchId,status:parsed.data.status}).eq("id",createdId).select("id, email, full_name, phone, role, branch_id, status, created_at, updated_at").single()
     if(profileError||!profile) throw profileError ?? new Error("Profile configuration failed")
     const branches=await getBranches(); revalidatePath("/dashboard/users")
-    return {ok:true,user:mapProfileRow(profile,branches),invitationSent:true}
+    return {ok:true,user:mapProfileRow(profile,branches),invitationSent:invitation.invitationSent}
   } catch(error) {
     let rollbackFailed=false
     if(createdId) { try { const {error:rollbackError}=await createAdminClient().auth.admin.deleteUser(createdId); rollbackFailed=!!rollbackError } catch { rollbackFailed=true } }
