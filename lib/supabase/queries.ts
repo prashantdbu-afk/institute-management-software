@@ -31,6 +31,7 @@ import {
 import { enrollmentDatabaseRowSchema, type EnrollmentDatabaseRow } from "@/lib/enrollments/model"
 import { profileDatabaseRowSchema, type ProfileDatabaseRow } from "@/lib/users/model"
 import { teacherAssignmentRowSchema, teacherDetailRowSchema, type TeacherAssignmentRow, type TeacherDetailRow } from "@/lib/teachers/model"
+import { timetableDatabaseRowSchema, type TimetableCreatePayload, type TimetableDatabaseRow, type TimetableReferences, type TimetableUpdatePayload } from "@/lib/timetable/model"
 
 const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
 
@@ -228,30 +229,53 @@ export async function getStudentEnrollments(): Promise<EnrollmentDatabaseRow[]> 
   return enrollmentDatabaseRowSchema.array().parse(data)
 }
 
-export async function getTimetable() {
+const timetableColumns = "id, day_of_week, start_time, end_time, course_id, batch_id, teacher_id, room_number, branch_id, created_at, updated_at"
+
+export async function getTimetable(): Promise<TimetableDatabaseRow[]> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("timetable").select("*").order("day_of_week", { ascending: true })
+  const { data, error } = await supabase.from("timetable").select(timetableColumns).order("day_of_week").order("start_time")
   if (error) throw error
-  return data
+  return timetableDatabaseRowSchema.array().parse(data)
 }
 
-export async function createTimetableEntry(entry: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("timetable").insert([entry]).select()
-  if (error) throw error
-  return data
+export async function getTimetableEntry(id:string):Promise<TimetableDatabaseRow>{ const supabase=await createClient();const {data,error}=await supabase.from("timetable").select(timetableColumns).eq("id",id).single();if(error)throw error;return timetableDatabaseRowSchema.parse(data) }
+
+export async function getTimetableReferences():Promise<TimetableReferences>{
+  const supabase=await createClient()
+  const [branches,courses,batches,teachers,assignments]=await Promise.all([
+    supabase.from("branches").select("id,name").order("name"),
+    supabase.from("courses").select("id,name,branch_id").order("name"),
+    supabase.from("batches").select("id,name,course_id,branch_id").order("name"),
+    supabase.from("profiles").select("id,full_name,email,branch_id").eq("role","teacher").eq("status","active").order("full_name"),
+    supabase.from("teacher_course_assignments").select("teacher_id,course_id,branch_id").eq("status","active"),
+  ])
+  for(const result of [branches,courses,batches,teachers,assignments]) if(result.error) throw result.error
+  return {
+    branches:(branches.data??[]).map(row=>({id:String(row.id),name:String(row.name)})),
+    courses:(courses.data??[]).filter(row=>row.branch_id).map(row=>({id:String(row.id),name:String(row.name),branchId:String(row.branch_id)})),
+    batches:(batches.data??[]).filter(row=>row.branch_id).map(row=>({id:String(row.id),name:String(row.name),courseId:String(row.course_id),branchId:String(row.branch_id)})),
+    teachers:(teachers.data??[]).filter(row=>row.branch_id).map(row=>({id:String(row.id),name:String(row.full_name||row.email),branchId:String(row.branch_id)})),
+    assignments:(assignments.data??[]).map(row=>({teacherId:String(row.teacher_id),courseId:String(row.course_id),branchId:String(row.branch_id)})),
+  }
 }
 
-export async function updateTimetableEntry(id: string, updates: any) {
+export async function createTimetableEntry(entry: TimetableCreatePayload):Promise<TimetableDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("timetable").update(updates).eq("id", id).select()
+  const { data, error } = await supabase.from("timetable").insert(entry).select(timetableColumns).single()
   if (error) throw error
-  return data
+  return timetableDatabaseRowSchema.parse(data)
+}
+
+export async function updateTimetableEntry(id: string, updates: TimetableUpdatePayload):Promise<TimetableDatabaseRow> {
+  const supabase = await createClient()
+  const { data, error } = await supabase.from("timetable").update(updates).eq("id", id).select(timetableColumns).single()
+  if (error) throw error
+  return timetableDatabaseRowSchema.parse(data)
 }
 
 export async function deleteTimetableEntry(id: string) {
   const supabase = await createClient()
-  const { error } = await supabase.from("timetable").delete().eq("id", id)
+  const { error } = await supabase.from("timetable").delete().eq("id", id).select("id").single()
   if (error) throw error
 }
 

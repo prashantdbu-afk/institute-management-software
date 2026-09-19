@@ -1,0 +1,23 @@
+"use client"
+
+import { useMemo,useState } from "react"
+import { Edit2,Plus,Trash2 } from "lucide-react"
+import { createTimetableAction,deleteTimetableAction,updateTimetableAction } from "@/app/dashboard/timetable/actions"
+import { TimetableForm } from "@/components/dashboard/timetable-form"
+import { Button } from "@/components/ui/button"
+import { Card,CardContent,CardHeader } from "@/components/ui/card"
+import { Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle,DialogTrigger } from "@/components/ui/dialog"
+import { formatIndianTime } from "@/lib/locale/india"
+import { replaceTimetableEntry,timetableDays,type TimetableFormData,type TimetableReferences,type TimetableViewModel } from "@/lib/timetable/model"
+
+export function TimetableClient({initialEntries,references,canManage,lockedBranchId}:{initialEntries:TimetableViewModel[];references:TimetableReferences;canManage:boolean;lockedBranchId:string|null}){
+  const [entries,setEntries]=useState(initialEntries),[day,setDay]=useState<(typeof timetableDays)[number]>("Monday"),[open,setOpen]=useState(false),[editing,setEditing]=useState<TimetableViewModel|null>(null),[busy,setBusy]=useState(false),[error,setError]=useState("")
+  const visible=useMemo(()=>entries.filter(x=>x.day===day).sort((a,b)=>a.startTime.localeCompare(b.startTime)),[day,entries])
+  const changeOpen=(value:boolean)=>{if(busy)return;setOpen(value);if(!value){setEditing(null);setError("")}}
+  const save=async(data:TimetableFormData)=>{setBusy(true);setError("");try{const result=editing?await updateTimetableAction(editing.id,data):await createTimetableAction(data);if(!result.ok){setError(result.error);return}setEntries(current=>editing?replaceTimetableEntry(current,result.entry):[...current,result.entry]);setOpen(false);setEditing(null)}catch{setError("Unable to save this schedule. Please try again.")}finally{setBusy(false)}}
+  const remove=async(entry:TimetableViewModel)=>{if(!window.confirm(`Delete the ${entry.courseName} schedule?`))return;setBusy(true);setError("");try{const result=await deleteTimetableAction(entry.id);if(!result.ok){setError(result.error);return}setEntries(current=>current.filter(x=>x.id!==entry.id))}catch{setError("Unable to delete this schedule. Please try again.")}finally{setBusy(false)}}
+  return <div className="space-y-6"><div className="flex items-center justify-between gap-4"><div><h1 className="text-3xl font-bold">Timetable</h1><p className="mt-2 text-muted-foreground">Manage the persistent class schedule</p></div>{canManage&&<Dialog open={open} onOpenChange={changeOpen}><DialogTrigger asChild><Button onClick={()=>{setEditing(null);setError("")} } className="gap-2"><Plus size={20}/>Add Schedule</Button></DialogTrigger><DialogContent className="max-w-lg"><DialogHeader><DialogTitle>{editing?"Edit Schedule":"Add Schedule"}</DialogTitle><DialogDescription>Times are shown in India Standard Time.</DialogDescription></DialogHeader><TimetableForm key={editing?.id??"new"} initialData={editing} references={references} lockedBranchId={lockedBranchId} onSubmit={save} isSubmitting={busy} error={error}/></DialogContent></Dialog>}</div>
+  {error&&!open&&<p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
+  <Card><CardHeader><div className="flex gap-2 overflow-x-auto pb-2">{timetableDays.map(value=><Button key={value} onClick={()=>setDay(value)} aria-pressed={day===value} variant={day===value?"default":"outline"}>{value}</Button>)}</div></CardHeader></Card>
+  <div className="space-y-3">{visible.length===0?<Card><CardContent className="py-12 text-center text-muted-foreground">No classes scheduled for {day}</CardContent></Card>:visible.map(entry=><Card key={entry.id}><CardContent className="pt-6"><div className="flex items-start justify-between gap-4"><div><div className="mb-2 text-2xl font-bold text-primary">{formatIndianTime(entry.startTime)} – {formatIndianTime(entry.endTime)}</div><div className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5"><span><b>Course:</b> {entry.courseName}</span><span><b>Batch:</b> {entry.batchName}</span><span><b>Teacher:</b> {entry.teacherName}</span><span><b>Branch:</b> {entry.branchName}</span><span><b>Room:</b> {entry.room||"—"}</span></div></div>{canManage&&<div className="flex gap-2"><Button variant="outline" size="sm" aria-label={`Edit ${entry.courseName}`} onClick={()=>{setEditing(entry);setError("");setOpen(true)}}><Edit2 size={16}/></Button><Button variant="destructive" size="sm" aria-label={`Delete ${entry.courseName}`} disabled={busy} onClick={()=>remove(entry)}><Trash2 size={16}/></Button></div>}</div></CardContent></Card>)}</div></div>
+}
