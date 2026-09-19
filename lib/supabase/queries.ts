@@ -32,6 +32,7 @@ import { enrollmentDatabaseRowSchema, type EnrollmentDatabaseRow } from "@/lib/e
 import { profileDatabaseRowSchema, type ProfileDatabaseRow } from "@/lib/users/model"
 import { teacherAssignmentRowSchema, teacherDetailRowSchema, type TeacherAssignmentRow, type TeacherDetailRow } from "@/lib/teachers/model"
 import { timetableDatabaseRowSchema, type TimetableCreatePayload, type TimetableDatabaseRow, type TimetableReferences, type TimetableUpdatePayload } from "@/lib/timetable/model"
+import { homeworkDatabaseRowSchema, submissionDatabaseRowSchema, type HomeworkCreatePayload, type HomeworkDatabaseRow, type HomeworkReferences, type HomeworkUpdatePayload, type SubmissionCreatePayload, type SubmissionDatabaseRow, type SubmissionReviewPayload } from "@/lib/homework/model"
 
 const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
 
@@ -306,32 +307,18 @@ export async function deleteStockItem(id: string) {
   if (error) throw error
 }
 
-export async function getHomework() {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("homework").select("*").order("due_date", { ascending: true })
-  if (error) throw error
-  return data
-}
-
-export async function createHomework(homework: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("homework").insert([homework]).select()
-  if (error) throw error
-  return data
-}
-
-export async function updateHomework(id: string, updates: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("homework").update(updates).eq("id", id).select()
-  if (error) throw error
-  return data
-}
-
-export async function deleteHomework(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from("homework").delete().eq("id", id)
-  if (error) throw error
-}
+const homeworkColumns="id,title,description,course_id,batch_id,teacher_id,assigned_date,due_date,branch_id,created_at,updated_at"
+const submissionColumns="id,homework_id,student_id,submitted_date,submitted_at,submission_content,status,marks,teacher_feedback,created_at,updated_at"
+export async function getHomework():Promise<HomeworkDatabaseRow[]>{const s=await createClient();const{data,error}=await s.from("homework").select(homeworkColumns).order("due_date");if(error)throw error;return homeworkDatabaseRowSchema.array().parse(data)}
+export async function getHomeworkEntry(id:string):Promise<HomeworkDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework").select(homeworkColumns).eq("id",id).single();if(error)throw error;return homeworkDatabaseRowSchema.parse(data)}
+export async function getHomeworkSubmissions():Promise<SubmissionDatabaseRow[]>{const s=await createClient();const{data,error}=await s.from("homework_submissions").select(submissionColumns).order("created_at");if(error)throw error;return submissionDatabaseRowSchema.array().parse(data)}
+export async function getHomeworkStudentNames(ids:string[]){if(!ids.length)return new Map<string,string>();const s=await createClient();const{data,error}=await s.from("profiles").select("id,full_name,email").in("id",ids);if(error)throw error;return new Map((data??[]).map(x=>[String(x.id),String(x.full_name||x.email)]))}
+export async function getHomeworkReferences():Promise<HomeworkReferences>{const s=await createClient();const [branches,courses,batches,teachers,assignments]=await Promise.all([s.from("branches").select("id,name").order("name"),s.from("courses").select("id,name,branch_id").order("name"),s.from("batches").select("id,name,course_id,branch_id").order("name"),s.from("profiles").select("id,full_name,email,branch_id").eq("role","teacher").eq("status","active").order("full_name"),s.from("teacher_course_assignments").select("teacher_id,course_id,branch_id").eq("status","active")]);for(const r of[branches,courses,batches,teachers,assignments])if(r.error)throw r.error;return{branches:(branches.data??[]).map(x=>({id:String(x.id),name:String(x.name)})),courses:(courses.data??[]).filter(x=>x.branch_id).map(x=>({id:String(x.id),name:String(x.name),branchId:String(x.branch_id)})),batches:(batches.data??[]).filter(x=>x.branch_id).map(x=>({id:String(x.id),name:String(x.name),courseId:String(x.course_id),branchId:String(x.branch_id)})),teachers:(teachers.data??[]).filter(x=>x.branch_id).map(x=>({id:String(x.id),name:String(x.full_name||x.email),branchId:String(x.branch_id)})),assignments:(assignments.data??[]).map(x=>({teacherId:String(x.teacher_id),courseId:String(x.course_id),branchId:String(x.branch_id)}))}}
+export async function createHomework(homework:HomeworkCreatePayload):Promise<HomeworkDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework").insert(homework).select(homeworkColumns).single();if(error)throw error;return homeworkDatabaseRowSchema.parse(data)}
+export async function updateHomework(id:string,updates:HomeworkUpdatePayload):Promise<HomeworkDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework").update(updates).eq("id",id).select(homeworkColumns).single();if(error)throw error;return homeworkDatabaseRowSchema.parse(data)}
+export async function deleteHomework(id:string){const s=await createClient();const{error}=await s.from("homework").delete().eq("id",id).select("id").single();if(error)throw error}
+export async function createHomeworkSubmission(payload:SubmissionCreatePayload):Promise<SubmissionDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework_submissions").insert(payload).select(submissionColumns).single();if(error)throw error;return submissionDatabaseRowSchema.parse(data)}
+export async function reviewHomeworkSubmission(id:string,payload:SubmissionReviewPayload):Promise<SubmissionDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework_submissions").update(payload).eq("id",id).select(submissionColumns).single();if(error)throw error;return submissionDatabaseRowSchema.parse(data)}
 
 export async function getTestResults() {
   const supabase = await createClient()
