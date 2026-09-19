@@ -39,6 +39,12 @@ export function formatIndianDateTime(value: Date | string | null | undefined) {
   return date ? `${formatIndianDate(date)}, ${formatIndianTime(date)}` : "—"
 }
 
+export function getIndiaToday(now: Date = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: INDIA_TIME_ZONE }).formatToParts(now)
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]))
+  return `${value.year}-${value.month}-${value.day}`
+}
+
 export interface IndianAddress {
   organisation?: string | null
   addressLine1?: string | null
