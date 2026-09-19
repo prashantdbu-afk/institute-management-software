@@ -22,7 +22,9 @@ join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and not con.convalidated;
 ```
 
-Supabase-managed schemas such as `auth`, `storage`, and `realtime` are owned and migrated by Supabase. Do not change their ownership to make an application migration pass.
+The application constraint release gate passes when this application-scoped query returns zero rows. Do not require zero unvalidated constraints globally across the entire Supabase database: a global catalog query can include Supabase-managed infrastructure outside the application's ownership.
+
+Supabase-managed schemas such as `auth`, `storage`, and `realtime` are owned and migrated by Supabase. Treat their constraint state as informational for the application release unless Supabase reports an infrastructure problem. Do not alter their tables, validate or recreate their constraints, change their ownership, or assume managed service roles to make an application migration pass.
 
 ## RLS verification
 

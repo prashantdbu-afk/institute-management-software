@@ -1,6 +1,12 @@
 # V1 Constraint Validation Audit
 
-Live audit date: 19 September 2026. Initial state: 58 constraints with `convalidated = false`. Every application constraint below was validated against historical rows and then marked valid. No violating historical rows were found.
+Live audit date: 19 September 2026. The initial global inventory contained 58 constraints with `convalidated = false`: 57 application-owned constraints in `public` and one Supabase-managed constraint in `realtime`. Every application constraint below was validated against historical rows and then marked valid. No violating historical application rows were found.
+
+## Release-gate result
+
+**Application release gate: PASS.** All 57 application-owned constraints were validated, zero application-owned constraints remain `NOT VALID`, and zero historical application-data violations were found.
+
+**Supabase-managed infrastructure: informational.** `realtime.messages.messages_payload_exclusive` remains `NOT VALID`. It belongs to Supabase-managed infrastructure, is owned by `supabase_realtime_admin`, and is outside the application's ownership and release scope. Its table contained zero rows and therefore zero violations when audited. Do not alter the table, change its ownership, assume its owner role, or validate/recreate the constraint from application migrations.
 
 | Schema/table | Constraint | Type | Definition | Result |
 |---|---|---|---|---|
@@ -62,6 +68,8 @@ Live audit date: 19 September 2026. Initial state: 58 constraints with `convalid
 | public.timetable | timetable_teacher_course_assignment_fkey | FK | `(teacher_id, course_id, branch_id) -> teacher_course_assignments(...)` | Safe; validated |
 | public.timetable | timetable_teacher_required | CHECK | `teacher_id IS NOT NULL` | Safe; validated |
 | public.timetable | timetable_time_valid | CHECK | `end_time > start_time` | Safe; validated |
-| realtime.messages | messages_payload_exclusive | CHECK | `payload IS NULL OR binary_payload IS NULL` | Zero rows/violations; owner-managed review |
+| realtime.messages | messages_payload_exclusive | CHECK | `payload IS NULL OR binary_payload IS NULL` | Informational: zero rows/violations; Supabase-managed |
 
-Final state: zero unvalidated constraints in the application-owned `public` schema. One Supabase-managed `realtime` constraint remains unvalidated. Its table is empty, but `postgres` cannot validate it because the owner is `supabase_realtime_admin` and role assumption is denied. Application migration 022 deliberately excludes managed schemas.
+Final application state: zero unvalidated constraints in the application-owned `public` schema. Application migration 022 deliberately excludes managed schemas.
+
+Future release audits must scope constraint validation to application-owned schemas and tables. A global PostgreSQL catalog query can include constraints owned by Supabase services and must not be used by itself as an application release gate.
