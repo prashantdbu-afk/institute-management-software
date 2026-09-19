@@ -151,7 +151,7 @@ export function BranchesClient({ initialBranches }: { initialBranches: BranchVie
                     <div className="min-w-0 flex-1">
                       <h3 className="text-lg font-semibold">{branch.name}</h3>
                       <div className="mt-3 grid grid-cols-1 gap-3 text-sm text-muted-foreground md:grid-cols-3">
-                        <div className="flex items-center gap-2"><MapPin size={16} /><span>{[branch.address, branch.city].filter(Boolean).join(", ") || "No address provided"}</span></div>
+                        <div className="flex items-center gap-2"><MapPin size={16} /><span>{[branch.addressLine1,branch.addressLine2,branch.city,branch.district,branch.state,branch.pinCode,"India"].filter(Boolean).join(", ")}</span></div>
                         {branch.phone && <div className="flex items-center gap-2"><Phone size={16} /><span>{branch.phone}</span></div>}
                         <div className="flex items-center gap-2"><Mail size={16} /><span>{branch.email}</span></div>
                       </div>
