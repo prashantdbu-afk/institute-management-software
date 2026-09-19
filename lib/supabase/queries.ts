@@ -286,33 +286,6 @@ export async function deleteTimetableEntry(id: string) {
   if (error) throw error
 }
 
-export async function getStock() {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("stock").select("*").order("created_at", { ascending: false })
-  if (error) throw error
-  return data
-}
-
-export async function createStockItem(item: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("stock").insert([item]).select()
-  if (error) throw error
-  return data
-}
-
-export async function updateStockItem(id: string, updates: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("stock").update(updates).eq("id", id).select()
-  if (error) throw error
-  return data
-}
-
-export async function deleteStockItem(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from("stock").delete().eq("id", id)
-  if (error) throw error
-}
-
 const homeworkColumns="id,title,description,course_id,batch_id,teacher_id,assigned_date,due_date,branch_id,created_at,updated_at"
 const submissionColumns="id,homework_id,student_id,submitted_date,submitted_at,submission_content,status,marks,teacher_feedback,created_at,updated_at"
 export async function getHomework():Promise<HomeworkDatabaseRow[]>{const s=await createClient();const{data,error}=await s.from("homework").select(homeworkColumns).order("due_date");if(error)throw error;return homeworkDatabaseRowSchema.array().parse(data)}
@@ -349,58 +322,4 @@ export async function createStockRow(x:StockFormData){const s=await createClient
 export async function updateStockRow(id:string,x:StockFormData){const s=await createClient();const{data,error}=await s.from("stock").update(stockPayload(x)).eq("id",id).select(stockColumns).single();if(error)throw error;return stockRowSchema.parse(data)}
 export async function deleteStockRow(id:string){const s=await createClient();const{error}=await s.from("stock").delete().eq("id",id).select("id").single();if(error)throw error}
 
-export async function getDashboardMetrics(user:AuthoritativeUser):Promise<DashboardMetrics>{const s=await createClient(),m=emptyDashboardMetrics();const count=async(table:string,configure?:(q:any)=>any)=>{let q=s.from(table).select("*",{count:"exact",head:true});if(configure)q=configure(q);const{count,error}=await q;if(error)throw error;return count??0};const [branches,courses,batches,enrollments,teachers,pending,homework,results,classes,fees]=await Promise.all([count("branches"),count("courses"),count("batches",q=>q.eq("status","active")),count("student_enrollments",q=>q.eq("status","active")),count("profiles",q=>q.eq("role","teacher").eq("status","active")),count("admissions",q=>q.eq("status","pending")),count("homework"),count("test_results"),count("timetable"),s.from("fees").select("total_amount,amount_paid")]);if(fees.error)throw fees.error;Object.assign(m,{branches,courses,batches,students:enrollments,teachers,pendingAdmissions:pending,homework,results,classes});for(const f of fees.data??[]){m.feesAssigned+=Number(f.total_amount);m.feesCollected+=Number(f.amount_paid);m.feesOutstanding+=Math.max(0,Number(f.total_amount)-Number(f.amount_paid))}if(user.role==="student")m.students=enrollments;return m}
-
-export async function getTestResults() {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("test_results").select("*").order("test_date", { ascending: false })
-  if (error) throw error
-  return data
-}
-
-export async function createTestResult(result: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("test_results").insert([result]).select()
-  if (error) throw error
-  return data
-}
-
-export async function updateTestResult(id: string, updates: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("test_results").update(updates).eq("id", id).select()
-  if (error) throw error
-  return data
-}
-
-export async function deleteTestResult(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from("test_results").delete().eq("id", id)
-  if (error) throw error
-}
-
-export async function getFees() {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("fees").select("*").order("created_at", { ascending: false })
-  if (error) throw error
-  return data
-}
-
-export async function createFee(fee: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("fees").insert([fee]).select()
-  if (error) throw error
-  return data
-}
-
-export async function updateFee(id: string, updates: any) {
-  const supabase = await createClient()
-  const { data, error } = await supabase.from("fees").update(updates).eq("id", id).select()
-  if (error) throw error
-  return data
-}
-
-export async function deleteFee(id: string) {
-  const supabase = await createClient()
-  const { error } = await supabase.from("fees").delete().eq("id", id)
-  if (error) throw error
-}
+export async function getDashboardMetrics(user:AuthoritativeUser):Promise<DashboardMetrics>{const s=await createClient(),m=emptyDashboardMetrics();const requests=[s.from("branches").select("*",{count:"exact",head:true}),s.from("courses").select("*",{count:"exact",head:true}),s.from("batches").select("*",{count:"exact",head:true}),s.from("student_enrollments").select("*",{count:"exact",head:true}).eq("status","active"),s.from("profiles").select("*",{count:"exact",head:true}).eq("role","teacher").eq("status","active"),s.from("admissions").select("*",{count:"exact",head:true}).eq("status","pending"),s.from("homework").select("*",{count:"exact",head:true}),s.from("test_results").select("*",{count:"exact",head:true}),s.from("timetable").select("*",{count:"exact",head:true}),s.from("fees").select("total_amount,amount_paid")];const responses=await Promise.all(requests);const [branches,courses,batches,enrollments,teachers,pending,homework,results,classes,fees]=responses;for(const r of responses)if(r.error)throw r.error;Object.assign(m,{branches:branches.count??0,courses:courses.count??0,batches:batches.count??0,students:enrollments.count??0,teachers:teachers.count??0,pendingAdmissions:pending.count??0,homework:homework.count??0,results:results.count??0,classes:classes.count??0});for(const f of fees.data??[]){m.feesAssigned+=Number(f.total_amount);m.feesCollected+=Number(f.amount_paid);m.feesOutstanding+=Math.max(0,Number(f.total_amount)-Number(f.amount_paid))}if(user.role==="student")m.students=enrollments.count??0;return m}

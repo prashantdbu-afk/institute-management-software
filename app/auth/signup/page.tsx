@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -17,11 +18,6 @@ export default function SignupPage() {
   const [lastName, setLastName] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -71,15 +67,13 @@ export default function SignupPage() {
     }
   }
 
-  if (!mounted) return null
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 px-4">
       <div className="w-full max-w-md">
         <Card className="border-2 shadow-lg">
           <CardHeader className="space-y-2 text-center">
             <div className="flex justify-center mb-4">
-              <img src="/logo.png" alt="Genius Park Academy" className="h-20 w-auto" />
+              <Image src="/logo.png" alt="Genius Park Academy" width={133} height={80} className="h-20 w-auto" priority />
             </div>
             <CardTitle className="text-2xl font-bold">Create Account</CardTitle>
             <CardDescription>Join Genius Park Academy</CardDescription>

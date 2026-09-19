@@ -1,7 +1,8 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect } from "react"
+import { useState } from "react"
+import Image from "next/image"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -15,11 +16,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
   const [loading, setLoading] = useState(false)
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -35,25 +31,20 @@ export default function LoginPage() {
       })
 
       if (authError) {
-        console.log("[v0] Auth error:", authError.message)
         setError(authError.message || "Invalid email or password")
         return
       }
 
       if (data.user) {
-        console.log("[v0] Login successful for user:", data.user.email)
         router.push("/dashboard")
         router.refresh()
       }
-    } catch (err: any) {
-      console.log("[v0] Login error:", err)
+    } catch {
       setError("An error occurred. Please try again.")
     } finally {
       setLoading(false)
     }
   }
-
-  if (!mounted) return null
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-accent/5 px-4">
@@ -61,7 +52,7 @@ export default function LoginPage() {
         <Card className="border-2 shadow-lg">
           <CardHeader className="space-y-2 text-center">
             <div className="flex justify-center mb-6">
-              <img src="/logo.png" alt="Genius Park Academy" className="h-24 w-auto" />
+              <Image src="/logo.png" alt="Genius Park Academy" width={160} height={96} className="h-24 w-auto" priority />
             </div>
             <CardTitle className="text-2xl font-bold">Genius Park Academy</CardTitle>
             <CardDescription className="text-base">One Goal, One Passion - Child Development</CardDescription>
