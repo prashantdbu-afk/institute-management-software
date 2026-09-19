@@ -33,8 +33,13 @@ import { profileDatabaseRowSchema, type ProfileDatabaseRow } from "@/lib/users/m
 import { teacherAssignmentRowSchema, teacherDetailRowSchema, type TeacherAssignmentRow, type TeacherDetailRow } from "@/lib/teachers/model"
 import { timetableDatabaseRowSchema, type TimetableCreatePayload, type TimetableDatabaseRow, type TimetableReferences, type TimetableUpdatePayload } from "@/lib/timetable/model"
 import { homeworkDatabaseRowSchema, submissionDatabaseRowSchema, type HomeworkCreatePayload, type HomeworkDatabaseRow, type HomeworkReferences, type HomeworkUpdatePayload, type SubmissionCreatePayload, type SubmissionDatabaseRow, type SubmissionReviewPayload } from "@/lib/homework/model"
+import {assessmentRowSchema,type AssessmentFormData,type AssessmentRefs} from "@/lib/assessments/model"
+import {feeRowSchema,type FeeFormData,type FeeRefs} from "@/lib/fees/model"
+import {stockRowSchema,type StockFormData} from "@/lib/stock/model"
+import{emptyDashboardMetrics,type DashboardMetrics}from"@/lib/dashboard/metrics"
+import type{AuthoritativeUser}from"@/lib/auth/permissions"
 
-const branchColumns = "id, name, address, city, phone, email, principal_name, created_at, updated_at"
+const branchColumns = "id,name,address,address_line_1,address_line_2,city,district,state,pin_code,country,phone,email,principal_name,created_at,updated_at"
 
 export async function getBranches(): Promise<BranchDatabaseRow[]> {
   const supabase = await createClient()
@@ -43,9 +48,10 @@ export async function getBranches(): Promise<BranchDatabaseRow[]> {
   return branchDatabaseRowSchema.array().parse(data)
 }
 
+const branchPayload=(branch:BranchCreatePayload)=>({name:branch.name,address:branch.addressLine1,address_line_1:branch.addressLine1,address_line_2:branch.addressLine2||null,city:branch.city,district:branch.district||null,state:branch.state,pin_code:branch.pinCode,country:"India",phone:branch.phone||null,email:branch.email})
 export async function createBranch(branch: BranchCreatePayload): Promise<BranchDatabaseRow> {
   const supabase = await createClient()
-  const { data, error } = await supabase.from("branches").insert(branch).select(branchColumns).single()
+  const { data, error } = await supabase.from("branches").insert(branchPayload(branch)).select(branchColumns).single()
   if (error) throw error
   return branchDatabaseRowSchema.parse(data)
 }
@@ -54,7 +60,7 @@ export async function updateBranch(id: string, updates: BranchUpdatePayload): Pr
   const supabase = await createClient()
   const { data, error } = await supabase
     .from("branches")
-    .update(updates)
+    .update(branchPayload(updates as BranchCreatePayload))
     .eq("id", id)
     .select(branchColumns)
     .single()
@@ -319,6 +325,31 @@ export async function updateHomework(id:string,updates:HomeworkUpdatePayload):Pr
 export async function deleteHomework(id:string){const s=await createClient();const{error}=await s.from("homework").delete().eq("id",id).select("id").single();if(error)throw error}
 export async function createHomeworkSubmission(payload:SubmissionCreatePayload):Promise<SubmissionDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework_submissions").insert(payload).select(submissionColumns).single();if(error)throw error;return submissionDatabaseRowSchema.parse(data)}
 export async function reviewHomeworkSubmission(id:string,payload:SubmissionReviewPayload):Promise<SubmissionDatabaseRow>{const s=await createClient();const{data,error}=await s.from("homework_submissions").update(payload).eq("id",id).select(submissionColumns).single();if(error)throw error;return submissionDatabaseRowSchema.parse(data)}
+
+const assessmentColumns="id,student_id,course_id,batch_id,teacher_id,branch_id,test_name,subject,marks_obtained,total_marks,percentage,grade,test_date,notes,created_at,updated_at"
+export async function getAssessments(){const s=await createClient();const{data,error}=await s.from("test_results").select(assessmentColumns).order("test_date",{ascending:false});if(error)throw error;return assessmentRowSchema.array().parse(data)}
+export async function createAssessment(x:AssessmentFormData){const s=await createClient();const{data,error}=await s.from("test_results").insert({student_id:x.studentId,course_id:x.courseId,batch_id:x.batchId,teacher_id:x.teacherId,branch_id:x.branchId,test_name:x.testName,subject:x.subject,marks_obtained:x.marksObtained,total_marks:x.totalMarks,test_date:x.testDate,notes:x.notes||null}).select(assessmentColumns).single();if(error)throw error;return assessmentRowSchema.parse(data)}
+export async function updateAssessment(id:string,x:AssessmentFormData){const s=await createClient();const{data,error}=await s.from("test_results").update({student_id:x.studentId,course_id:x.courseId,batch_id:x.batchId,teacher_id:x.teacherId,branch_id:x.branchId,test_name:x.testName,subject:x.subject,marks_obtained:x.marksObtained,total_marks:x.totalMarks,test_date:x.testDate,notes:x.notes||null}).eq("id",id).select(assessmentColumns).single();if(error)throw error;return assessmentRowSchema.parse(data)}
+export async function deleteAssessment(id:string){const s=await createClient();const{error}=await s.from("test_results").delete().eq("id",id).select("id").single();if(error)throw error}
+
+export async function getAcademicReferences():Promise<AssessmentRefs>{const s=await createClient();const[branches,courses,batches,teachers,enrollments,students]=await Promise.all([s.from("branches").select("id,name"),s.from("courses").select("id,name,branch_id"),s.from("batches").select("id,name,course_id,branch_id"),s.from("profiles").select("id,full_name,email,branch_id").eq("role","teacher").eq("status","active"),s.from("student_enrollments").select("student_id,branch_id,course_id,batch_id").eq("status","active").not("student_id","is",null),s.from("profiles").select("id,full_name,email,branch_id").eq("role","student").eq("status","active")]);for(const r of[branches,courses,batches,teachers,enrollments,students])if(r.error)throw r.error;return{branches:(branches.data??[]).map(x=>({id:String(x.id),name:String(x.name)})),courses:(courses.data??[]).map(x=>({id:String(x.id),name:String(x.name),branchId:String(x.branch_id)})),batches:(batches.data??[]).map(x=>({id:String(x.id),name:String(x.name),courseId:String(x.course_id),branchId:String(x.branch_id)})),teachers:(teachers.data??[]).map(x=>({id:String(x.id),name:String(x.full_name||x.email),branchId:String(x.branch_id)})),students:(enrollments.data??[]).flatMap(e=>{const p=(students.data??[]).find(x=>x.id===e.student_id);return p?[{id:String(p.id),name:String(p.full_name||p.email),branchId:String(e.branch_id),courseId:String(e.course_id),batchId:String(e.batch_id)}]:[]})}}
+
+const feeColumns="id,student_id,branch_id,course_id,batch_id,total_amount,amount_paid,due_date,payment_date,payment_method,status,notes,created_at,updated_at"
+export async function getFeeRows(){const s=await createClient();const{data,error}=await s.from("fees").select(feeColumns).order("due_date");if(error)throw error;return feeRowSchema.array().parse(data)}
+const feePayload=(x:FeeFormData)=>({student_id:x.studentId,branch_id:x.branchId,course_id:x.courseId,batch_id:x.batchId,total_amount:x.totalAmount,amount_paid:x.amountPaid,due_date:x.dueDate,payment_date:x.paymentDate||null,payment_method:x.paymentMethod||null,notes:x.notes||null,amount:x.totalAmount})
+export async function createFeeRow(x:FeeFormData){const s=await createClient();const{data,error}=await s.from("fees").insert(feePayload(x)).select(feeColumns).single();if(error)throw error;return feeRowSchema.parse(data)}
+export async function updateFeeRow(id:string,x:FeeFormData){const s=await createClient();const{data,error}=await s.from("fees").update(feePayload(x)).eq("id",id).select(feeColumns).single();if(error)throw error;return feeRowSchema.parse(data)}
+export async function deleteFeeRow(id:string){const s=await createClient();const{error}=await s.from("fees").delete().eq("id",id).select("id").single();if(error)throw error}
+export async function getFeeReferences():Promise<FeeRefs>{return getAcademicReferences()}
+
+const stockColumns="id,item_name,category,quantity,minimum_stock,unit_price,supplier,branch_id,created_at,updated_at"
+export async function getStockRows(){const s=await createClient();const{data,error}=await s.from("stock").select(stockColumns).order("item_name");if(error)throw error;return stockRowSchema.array().parse(data)}
+const stockPayload=(x:StockFormData)=>({item_name:x.itemName,category:x.category||null,quantity:x.quantity,minimum_stock:x.minimumStock,unit_price:x.unitPrice,supplier:x.supplier||null,branch_id:x.branchId})
+export async function createStockRow(x:StockFormData){const s=await createClient();const{data,error}=await s.from("stock").insert(stockPayload(x)).select(stockColumns).single();if(error)throw error;return stockRowSchema.parse(data)}
+export async function updateStockRow(id:string,x:StockFormData){const s=await createClient();const{data,error}=await s.from("stock").update(stockPayload(x)).eq("id",id).select(stockColumns).single();if(error)throw error;return stockRowSchema.parse(data)}
+export async function deleteStockRow(id:string){const s=await createClient();const{error}=await s.from("stock").delete().eq("id",id).select("id").single();if(error)throw error}
+
+export async function getDashboardMetrics(user:AuthoritativeUser):Promise<DashboardMetrics>{const s=await createClient(),m=emptyDashboardMetrics();const count=async(table:string,configure?:(q:any)=>any)=>{let q=s.from(table).select("*",{count:"exact",head:true});if(configure)q=configure(q);const{count,error}=await q;if(error)throw error;return count??0};const [branches,courses,batches,enrollments,teachers,pending,homework,results,classes,fees]=await Promise.all([count("branches"),count("courses"),count("batches",q=>q.eq("status","active")),count("student_enrollments",q=>q.eq("status","active")),count("profiles",q=>q.eq("role","teacher").eq("status","active")),count("admissions",q=>q.eq("status","pending")),count("homework"),count("test_results"),count("timetable"),s.from("fees").select("total_amount,amount_paid")]);if(fees.error)throw fees.error;Object.assign(m,{branches,courses,batches,students:enrollments,teachers,pendingAdmissions:pending,homework,results,classes});for(const f of fees.data??[]){m.feesAssigned+=Number(f.total_amount);m.feesCollected+=Number(f.amount_paid);m.feesOutstanding+=Math.max(0,Number(f.total_amount)-Number(f.amount_paid))}if(user.role==="student")m.students=enrollments;return m}
 
 export async function getTestResults() {
   const supabase = await createClient()

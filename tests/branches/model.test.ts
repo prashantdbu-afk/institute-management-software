@@ -15,8 +15,9 @@ import {
 const branch: BranchViewModel = {
   id: "11111111-1111-4111-8111-111111111111",
   name: "Central Branch",
-  address: "1 School Road",
+  addressLine1: "1 School Road", addressLine2:"",
   city: "Delhi",
+  district:"Central Delhi",state:"Delhi",pinCode:"110001",country:"India",
   phone: "",
   email: "central@example.com",
   principalName: null,
@@ -30,6 +31,7 @@ describe("branch data mapping and validation", () => {
       id: branch.id,
       name: branch.name,
       address: null,
+      address_line_1:null,address_line_2:null,district:null,state:null,pin_code:null,country:"India",
       city: null,
       phone: null,
       email: null,
@@ -38,7 +40,7 @@ describe("branch data mapping and validation", () => {
       updated_at: null,
     })
 
-    expect(mapBranchRow(row)).toMatchObject({ address: "", city: "", phone: "", email: "" })
+    expect(mapBranchRow(row)).toMatchObject({ addressLine1: "", city: "", phone: "", email: "",country:"India" })
     expect(mapBranchRow(row)).not.toHaveProperty("students")
     expect(mapBranchRow(row)).not.toHaveProperty("teachers")
   })
@@ -46,15 +48,15 @@ describe("branch data mapping and validation", () => {
   it("trims valid form values", () => {
     expect(branchFormSchema.parse({
       name: "  North  ",
-      address: "  2 Road  ",
+      addressLine1: "  2 Road  ",addressLine2:"",
       city: "  Pune  ",
-      phone: "  123  ",
+      district:"",state:"Maharashtra",pinCode:"411001",country:"India",phone: "  +919876543210  ",
       email: "  north@example.com  ",
-    })).toEqual({ name: "North", address: "2 Road", city: "Pune", phone: "123", email: "north@example.com" })
+    })).toEqual({ name: "North", addressLine1: "2 Road",addressLine2:"", city: "Pune",district:"",state:"Maharashtra",pinCode:"411001",country:"India", phone: "+919876543210", email: "north@example.com" })
   })
 
   it("rejects missing required fields and invalid email", () => {
-    expect(branchFormSchema.safeParse({ name: "", address: "", city: "", phone: "", email: "bad" }).success).toBe(false)
+    expect(branchFormSchema.safeParse({ name: "", addressLine1: "",addressLine2:"",city: "",district:"",state:"",pinCode:"12",country:"India",phone: "", email: "bad" }).success).toBe(false)
   })
 })
 

@@ -9,6 +9,12 @@ export const branchDatabaseRowSchema = z.object({
   phone: z.string().nullable(),
   email: z.string().nullable(),
   principal_name: z.string().nullable(),
+  address_line_1: z.string().nullable(),
+  address_line_2: z.string().nullable(),
+  district: z.string().nullable(),
+  state: z.string().nullable(),
+  pin_code: z.string().nullable(),
+  country: z.string(),
   created_at: z.string().nullable(),
   updated_at: z.string().nullable(),
 })
@@ -17,9 +23,14 @@ export type BranchDatabaseRow = z.infer<typeof branchDatabaseRowSchema>
 
 export const branchFormSchema = z.object({
   name: z.string().trim().min(1, "Branch name is required").max(200),
-  address: z.string().trim().min(1, "Address is required").max(500),
+  addressLine1: z.string().trim().min(1, "Address is required").max(500),
+  addressLine2: z.string().trim().max(500),
   city: z.string().trim().min(1, "City is required").max(200),
-  phone: z.string().trim().max(50),
+  district: z.string().trim().max(200),
+  state: z.string().trim().min(1,"State is required").max(200),
+  pinCode: z.string().trim().regex(/^[1-9]\d{5}$/,"Enter a valid 6-digit PIN Code"),
+  country: z.literal("India"),
+  phone: z.string().trim().regex(/^(?:\+91[- ]?)?[6-9]\d{9}$/,"Enter a valid Indian phone number").or(z.literal("")),
   email: z.string().trim().email("Enter a valid email address").max(320),
 })
 
@@ -38,8 +49,13 @@ export function mapBranchRow(row: BranchDatabaseRow): BranchViewModel {
   return {
     id: row.id,
     name: row.name,
-    address: row.address ?? "",
+    addressLine1: row.address_line_1 ?? row.address ?? "",
+    addressLine2: row.address_line_2 ?? "",
     city: row.city ?? "",
+    district: row.district??"",
+    state: row.state??"",
+    pinCode: row.pin_code??"",
+    country:"India",
     phone: row.phone ?? "",
     email: row.email ?? "",
     principalName: row.principal_name,
@@ -59,7 +75,7 @@ export function filterBranches(branches: BranchViewModel[], searchTerm: string) 
   return branches.filter(
     (branch) =>
       branch.name.toLowerCase().includes(query) ||
-      branch.city.toLowerCase().includes(query) ||
+      branch.city.toLowerCase().includes(query) || branch.state.toLowerCase().includes(query) ||
       branch.email.toLowerCase().includes(query),
   )
 }
