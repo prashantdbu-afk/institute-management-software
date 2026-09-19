@@ -86,6 +86,22 @@ grant update(status,marks,teacher_feedback) on public.homework_submissions to au
 grant delete on public.homework_submissions to authenticated;
 
 create policy homework_select_scoped on public.homework for select to authenticated using(public.is_admin() or (public.current_user_role()='branch_manager' and branch_id=public.current_user_branch_id()) or (public.current_user_role()='teacher' and teacher_id=auth.uid()) or (public.current_user_role()='student' and exists(select 1 from public.student_enrollments e where e.student_id=auth.uid() and e.status='active' and e.branch_id=homework.branch_id and e.course_id=homework.course_id and e.batch_id=homework.batch_id)));
+
+-- Teachers need the batch lookup for homework courses they are actively assigned to.
+-- This deliberately does not expose every batch in their branch.
+drop policy if exists batches_select_scoped on public.batches;
+create policy batches_select_scoped on public.batches for select to authenticated using(
+  public.is_admin()
+  or (public.current_user_role()='branch_manager' and branch_id=public.current_user_branch_id())
+  or (public.current_user_role()='teacher' and exists(
+    select 1 from public.teacher_course_assignments a
+    where a.teacher_id=auth.uid() and a.course_id=batches.course_id and a.branch_id=batches.branch_id and a.status='active'
+  ))
+  or (public.current_user_role()='student' and exists(
+    select 1 from public.student_enrollments e
+    where e.student_id=auth.uid() and e.batch_id=batches.id and e.status='active'
+  ))
+);
 create policy homework_insert_scoped on public.homework for insert to authenticated with check(public.is_admin() or (public.current_user_role()='branch_manager' and branch_id=public.current_user_branch_id()) or (public.current_user_role()='teacher' and teacher_id=auth.uid() and branch_id=public.current_user_branch_id()));
 create policy homework_update_scoped on public.homework for update to authenticated using(public.is_admin() or (public.current_user_role()='branch_manager' and branch_id=public.current_user_branch_id()) or (public.current_user_role()='teacher' and teacher_id=auth.uid())) with check(public.is_admin() or (public.current_user_role()='branch_manager' and branch_id=public.current_user_branch_id()) or (public.current_user_role()='teacher' and teacher_id=auth.uid() and branch_id=public.current_user_branch_id()));
 create policy homework_delete_scoped on public.homework for delete to authenticated using(public.is_admin() or (public.current_user_role()='branch_manager' and branch_id=public.current_user_branch_id()) or (public.current_user_role()='teacher' and teacher_id=auth.uid()));
