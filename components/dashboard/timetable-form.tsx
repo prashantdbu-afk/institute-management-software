@@ -1,195 +1,32 @@
 "use client"
 
-import type React from "react"
-
-import { useState, useEffect } from "react"
+import { useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { formatIndianTime } from "@/lib/locale/india"
+import { timetableDays, timetableFormSchema, type TimetableFormData, type TimetableReferences, type TimetableViewModel } from "@/lib/timetable/model"
 
-interface TimeSlot {
-  id: string
-  day: string
-  startTime: string
-  endTime: string
-  course: string
-  batch: string
-  teacher: string
-  room: string
+interface Props{initialData?:TimetableViewModel|null;references:TimetableReferences;lockedBranchId:string|null;onSubmit:(data:TimetableFormData)=>Promise<void>|void;isSubmitting:boolean;error:string}
+const times=Array.from({length:29},(_,index)=>{const minutes=8*60+index*30;return `${String(Math.floor(minutes/60)).padStart(2,"0")}:${String(minutes%60).padStart(2,"0")}`})
+
+export function TimetableForm({initialData,references,lockedBranchId,onSubmit,isSubmitting,error}:Props){
+  const initialBranch=lockedBranchId??initialData?.branchId??references.branches[0]?.id??""
+  const [data,setData]=useState<TimetableFormData>({branchId:initialBranch,courseId:initialData?.courseId??"",batchId:initialData?.batchId??"",teacherId:initialData?.teacherId??"",day:initialData?.day??"Monday",startTime:initialData?.startTime??"08:00",endTime:initialData?.endTime??"09:00",room:initialData?.room??""})
+  const [validation,setValidation]=useState("")
+  const courses=useMemo(()=>references.courses.filter(x=>x.branchId===data.branchId),[data.branchId,references.courses])
+  const batches=useMemo(()=>references.batches.filter(x=>x.branchId===data.branchId&&x.courseId===data.courseId),[data.branchId,data.courseId,references.batches])
+  const teachers=useMemo(()=>references.teachers.filter(teacher=>teacher.branchId===data.branchId&&references.assignments.some(a=>a.teacherId===teacher.id&&a.courseId===data.courseId&&a.branchId===data.branchId)),[data.branchId,data.courseId,references])
+  const change=(event:ChangeEvent<HTMLInputElement|HTMLSelectElement>)=>{const{name,value}=event.target;setData(current=>{if(name==="branchId")return{...current,branchId:value,courseId:"",batchId:"",teacherId:""};if(name==="courseId")return{...current,courseId:value,batchId:"",teacherId:""};return{...current,[name]:value}});setValidation("")}
+  const submit=async(event:FormEvent)=>{event.preventDefault();const parsed=timetableFormSchema.safeParse(data);if(!parsed.success){setValidation(parsed.error.issues[0]?.message??"Check the schedule details.");return}await onSubmit(parsed.data)}
+  return <form onSubmit={submit} className="space-y-4">
+    {(validation||error)&&<p role="alert" className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{validation||error}</p>}
+    <Field label="Branch" id="timetable-branch"><select id="timetable-branch" name="branchId" value={data.branchId} onChange={change} disabled={isSubmitting||!!lockedBranchId||!!initialData} required className="w-full rounded-md border border-input bg-background px-3 py-2"><option value="">Select branch</option>{references.branches.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+    <Field label="Course" id="timetable-course"><select id="timetable-course" name="courseId" value={data.courseId} onChange={change} disabled={isSubmitting} required className="w-full rounded-md border border-input bg-background px-3 py-2"><option value="">Select course</option>{courses.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+    <Field label="Batch" id="timetable-batch"><select id="timetable-batch" name="batchId" value={data.batchId} onChange={change} disabled={isSubmitting} required className="w-full rounded-md border border-input bg-background px-3 py-2"><option value="">Select batch</option>{batches.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+    <Field label="Teacher" id="timetable-teacher"><select id="timetable-teacher" name="teacherId" value={data.teacherId} onChange={change} disabled={isSubmitting} required className="w-full rounded-md border border-input bg-background px-3 py-2"><option value="">Select assigned teacher</option>{teachers.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></Field>
+    <div className="grid gap-4 sm:grid-cols-3"><Field label="Day" id="timetable-day"><select id="timetable-day" name="day" value={data.day} onChange={change} disabled={isSubmitting} className="w-full rounded-md border border-input bg-background px-3 py-2">{timetableDays.map(day=><option key={day}>{day}</option>)}</select></Field><Field label="Start time" id="timetable-start"><select id="timetable-start" name="startTime" value={data.startTime} onChange={change} disabled={isSubmitting} className="w-full rounded-md border border-input bg-background px-3 py-2">{times.map(time=><option key={time} value={time}>{formatIndianTime(time)}</option>)}</select></Field><Field label="End time" id="timetable-end"><select id="timetable-end" name="endTime" value={data.endTime} onChange={change} disabled={isSubmitting} className="w-full rounded-md border border-input bg-background px-3 py-2">{times.map(time=><option key={time} value={time}>{formatIndianTime(time)}</option>)}</select></Field></div>
+    <Field label="Room / Location" id="timetable-room"><Input id="timetable-room" name="room" value={data.room} onChange={change} maxLength={100} disabled={isSubmitting}/></Field>
+    <Button className="w-full" disabled={isSubmitting||references.branches.length===0}>{isSubmitting?"Saving...":initialData?"Update Schedule":"Add Schedule"}</Button>
+  </form>
 }
-
-interface TimetableFormProps {
-  initialData?: TimeSlot | null
-  onSubmit: (data: Omit<TimeSlot, "id">) => void
-}
-
-export function TimetableForm({ initialData, onSubmit }: TimetableFormProps) {
-  const [formData, setFormData] = useState({
-    day: "Monday",
-    startTime: "08:00",
-    endTime: "09:00",
-    course: "",
-    batch: "Batch A",
-    teacher: "",
-    room: "",
-  })
-
-  const [courses, setCourses] = useState<string[]>([])
-  const [teachers, setTeachers] = useState<string[]>([])
-
-  const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-  const timeSlots = ["08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00", "15:00", "16:00", "17:00"]
-
-  useEffect(() => {
-    // Load courses and teachers from localStorage
-    const savedCourses = localStorage.getItem("courses")
-    if (savedCourses) {
-      const courseList = JSON.parse(savedCourses)
-      setCourses(courseList.map((c: any) => c.name))
-    }
-
-    const savedTeachers = localStorage.getItem("teachers")
-    if (savedTeachers) {
-      const teacherList = JSON.parse(savedTeachers)
-      setTeachers(teacherList.map((t: any) => t.name))
-    }
-  }, [])
-
-  useEffect(() => {
-    if (initialData) {
-      setFormData(initialData)
-    }
-  }, [initialData])
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }))
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!formData.course.trim() || !formData.teacher.trim()) {
-      alert("Please fill in all required fields")
-      return
-    }
-    onSubmit(formData)
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Day *</label>
-        <select
-          name="day"
-          value={formData.day}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-        >
-          {days.map((day) => (
-            <option key={day} value={day}>
-              {day}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <label className="text-sm font-medium">Start Time *</label>
-          <select
-            name="startTime"
-            value={formData.startTime}
-            onChange={handleChange}
-            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-          >
-            {timeSlots.map((time) => (
-              <option key={time} value={time}>
-                {time}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="space-y-2">
-          <label className="text-sm font-medium">End Time *</label>
-          <select
-            name="endTime"
-            value={formData.endTime}
-            onChange={handleChange}
-            className="w-full px-3 py-2 rounded-md border border-input bg-background"
-          >
-            {timeSlots
-              .filter((t) => t > formData.startTime)
-              .map((time) => (
-                <option key={time} value={time}>
-                  {time}
-                </option>
-              ))}
-          </select>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Course *</label>
-        <select
-          name="course"
-          value={formData.course}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-          required
-        >
-          <option value="">Select a course</option>
-          {courses.map((course) => (
-            <option key={course} value={course}>
-              {course}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Batch</label>
-        <select
-          name="batch"
-          value={formData.batch}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-        >
-          <option value="Batch A">Batch A</option>
-          <option value="Batch B">Batch B</option>
-          <option value="Batch C">Batch C</option>
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Teacher *</label>
-        <select
-          name="teacher"
-          value={formData.teacher}
-          onChange={handleChange}
-          className="w-full px-3 py-2 rounded-md border border-input bg-background"
-          required
-        >
-          <option value="">Select a teacher</option>
-          {teachers.map((teacher) => (
-            <option key={teacher} value={teacher}>
-              {teacher}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Room/Location</label>
-        <Input name="room" placeholder="Room 101" value={formData.room} onChange={handleChange} />
-      </div>
-
-      <div className="flex gap-3 pt-4">
-        <Button type="submit" className="flex-1">
-          {initialData ? "Update Schedule" : "Add Schedule"}
-        </Button>
-      </div>
-    </form>
-  )
-}
+function Field({label,id,children}:{label:string;id:string;children:ReactNode}){return <div className="space-y-2"><label htmlFor={id} className="text-sm font-medium">{label} *</label>{children}</div>}
