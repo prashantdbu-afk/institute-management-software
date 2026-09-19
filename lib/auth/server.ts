@@ -12,11 +12,11 @@ export async function getAuthoritativeUser(): Promise<AuthoritativeUser | null> 
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, email, role, branch_id, full_name")
+    .select("id, email, role, branch_id, full_name, status")
     .eq("id", authData.user.id)
     .single()
 
-  if (profileError || !profile || !isUserRole(profile.role)) return null
+  if (profileError || !profile || !isUserRole(profile.role) || profile.status !== "active") return null
 
   return {
     id: profile.id,
@@ -24,6 +24,7 @@ export async function getAuthoritativeUser(): Promise<AuthoritativeUser | null> 
     role: profile.role,
     branchId: profile.branch_id,
     fullName: profile.full_name,
+    status: profile.status,
   }
 }
 

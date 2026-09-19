@@ -1,0 +1,12 @@
+import { readFileSync } from "node:fs"
+import { describe,expect,it } from "vitest"
+import { canManageTeacher,mapTeacher,teacherFormSchema,validateAssignmentBranches } from "../../lib/teachers/model"
+const branch="11111111-1111-4111-8111-111111111111", teacher="22222222-2222-4222-8222-222222222222", course="33333333-3333-4333-8333-333333333333"
+const actor=(role:"admin"|"branch_manager",branchId:string|null)=>({id:"a",email:"a@b.com",role,branchId,fullName:null,status:"active" as const})
+describe("teacher foundation",()=>{
+  it("requires a teacher profile with a consistent detail branch",()=>{const value=mapTeacher({id:teacher,email:"t@b.com",full_name:"Teacher",phone:null,role:"teacher",branch_id:branch,status:"active",created_at:null,updated_at:null},{teacher_id:teacher,branch_id:branch,qualification:null,specialization:null,experience_years:2,status:"active",joining_date:"2026-01-01",created_at:null,updated_at:null},[],[{id:branch,name:"Main"}],[{id:course,name:"Course",branchId:branch}]);expect(value.id).toBe(teacher);expect(()=>mapTeacher({id:teacher,email:"t@b.com",full_name:null,phone:null,role:"student",branch_id:branch,status:"active",created_at:null,updated_at:null},{teacher_id:teacher,branch_id:branch,qualification:null,specialization:null,experience_years:0,status:"active",joining_date:null,created_at:null,updated_at:null},[],[],[])).toThrow()})
+  it("rejects cross-branch assignments",()=>expect(validateAssignmentBranches(branch,[course],[{id:course,branchId:"44444444-4444-4444-8444-444444444444"}])).toBe(false))
+  it("scopes branch managers",()=>{expect(canManageTeacher(actor("branch_manager",branch),branch)).toBe(true);expect(canManageTeacher(actor("branch_manager",branch),"44444444-4444-4444-8444-444444444444")).toBe(false);expect(canManageTeacher(actor("admin",null),branch)).toBe(true)})
+  it("validates the relational form",()=>expect(teacherFormSchema.safeParse({fullName:"T",email:"t@b.com",phone:"",branchId:branch,qualification:"",specialization:"",experienceYears:1,status:"active",joiningDate:"2026-01-01",courseIds:[course]}).success).toBe(true))
+  it("removes Teacher localStorage, demo rows, and generated IDs",()=>{const source=[readFileSync("app/dashboard/teachers/page.tsx","utf8"),readFileSync("components/dashboard/teachers-client.tsx","utf8"),readFileSync("components/dashboard/teacher-form.tsx","utf8")].join("\n");expect(source).not.toContain("localStorage");expect(source).not.toContain("John Doe");expect(source).not.toContain("Date.now()")})
+})
